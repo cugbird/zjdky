@@ -11,7 +11,19 @@ module.exports = {
             new CopyPlugin([
                 {from: 'static', to: 'static'}
             ])
-        ]
+        ],
+        module: {
+            rules: [
+                {
+                    test: /\.glsl$/,
+                    use: [
+                        {
+                            loader: 'webpack-glsl'
+                        }
+                    ]
+                }
+            ]
+        }
     },
     // chainWebpack: (config) => {
         

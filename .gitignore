@@ -2,7 +2,7 @@
 node_modules
 /dist
 
-/static/model
+# /static/model
 
 
 # local env files
