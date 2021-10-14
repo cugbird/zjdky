@@ -5,10 +5,9 @@
             <div class="btn-item" @click="test_function2">飞行动画测试</div>
             <div class="btn-item" @click="test_function3">闪烁效果/取消</div>
             <div class="btn-item" @click="test_function4">涟漪效果/取消</div>
-            <div class="btn-item" @click="test_function5">蚂蚁线效果</div>
-            <div class="btn-item" @click="test_function6">蚂蚁线取消</div>
+            <!-- <div class="btn-item" @click="test_function5">蚂蚁线效果</div>
+            <div class="btn-item" @click="test_function6">蚂蚁线取消</div> -->
             <div class="btn-item" @click="test_function7">添加选中事件</div>
-            <!-- <div class="btn-item" @click="test_function8">地面自发光</div> -->
         </div>
         <Viewer3d ref="viewer3d" @object-select="handleSelectObject"></Viewer3d>
     </div>
@@ -26,24 +25,24 @@ export default {
             console.log('select object:', name);
         },
         test_function1() {
-            const object = this.$refs.viewer3d.getObjectByName('变压器Group');
+            const object = this.$refs.viewer3d.getObjectByName('变压器');
             console.log('test1:', object);
             this.$refs.viewer3d.set_object_opacity(object, 0.1);
         },
         test_function2() {
-            const object = this.$refs.viewer3d.getObjectByName('超声局放001');
+            const object = this.$refs.viewer3d.getObjectByName('超声局放传感器1');
             console.log('test2:', object);
             this.$refs.viewer3d.fly_to_object(object);
         },
         test_function3() {
-            const object = this.$refs.viewer3d.getObjectByName('超声局放001');
+            const object = this.$refs.viewer3d.getObjectByName('振动IPT节点D');
             console.log('test3:', object);
-            this.$refs.viewer3d.twinkle_object(object); // 有点问题，我在改
+            this.$refs.viewer3d.twinkle_object(object);
         },
         test_function4() {
             // const objectByq = this.$refs.viewer3d.getObjectByName('变压器Group');
             // this.$refs.viewer3d.set_object_visible(objectByq, false);
-            const object = this.$refs.viewer3d.getObjectByName('盒子001');
+            const object = this.$refs.viewer3d.getObjectByName('温度IPT节点A');
             console.log('test4:', object);
             this.$refs.viewer3d.ripple_object(object);
         },
@@ -89,12 +88,6 @@ export default {
         test_function7() {
             this.$refs.viewer3d.canSelected = true;
         },
-        test_function8() {
-            const object = this.$refs.viewer3d.getObjectByName('地面');
-            console.log('test_function8:', object);
-            this.$refs.viewer3d.set_object_opacity(object, 0.3);
-            this.$refs.viewer3d.set_object_emissive(object, 0x00ffff, 5.0);
-        }
     }
 }
 </script>

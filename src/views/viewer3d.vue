@@ -15,6 +15,8 @@ const TWEEN = require('@tweenjs/tween.js');
 import RelationLineVert  from '@/shaders/relationLineVert.glsl.js';
 import RelationLineFlag from '@/shaders/relationLineFlag.glsl.js';
 
+import {byq_relation_trees, byq_select_items} from './viewer_data';
+
 // threejs全局变量，不放在data中，有利于渲染速度
 let scene = undefined;
 let camera = undefined;
@@ -39,6 +41,8 @@ export default {
                 }
             },
             need_relation: true,
+            relation_name_list: [],
+            highlight_links: [],
             // 选中的物体
             selectedObject: undefined,
             canSelected: false, // 是否开启选中事件
@@ -48,7 +52,7 @@ export default {
     },
     mounted() {
         this.init3D();
-        this.loadModel('/static/model/byq2014_007.FBX');
+        this.loadModel('/static/model/byq_001.FBX');
     },
     methods: {
         /**
@@ -59,7 +63,7 @@ export default {
             let height = this.$refs.viewerRef.clientHeight;
             width = Math.floor(width);
             height = Math.floor(height);
-            console.log('width:', width, ', height:', height);
+            // console.log('width:', width, ', height:', height);
             return {
                 width: width - 1,
                 height: height - 1
@@ -124,16 +128,37 @@ export default {
                 console.log('load fbx data:', object);
                 object.renderOrder = 10;
                 scene.add(object);
+
+                this.loadBusiness();
             });
+        },
+        loadBusiness() {
+            this.set_object_opacity_by_name('变压器', 0.3);
+            this.loadRelations();
+        },
+        loadRelations() {
+            for (let i = 0; i < byq_relation_trees.length; ++i) {
+                const item_level_1 = byq_relation_trees[i];
+                for (let j = 0; j < item_level_1.children.length; ++j) {
+                    const item_level_2 = item_level_1.children[j];
+                    this.relation_object_by_name(item_level_2.name, item_level_1.name);
+                    for (let k = 0; k < item_level_2.children.length; ++k) {
+                        const item_level_3 = item_level_2.children[k];
+                        this.relation_object_by_name(item_level_3.name, item_level_2.name);
+                    }
+                }
+            }
         },
         mouse_event_click(e) {
             if (!this.canSelected) {return;}
             // 之前有选中的物体，则回退物体的颜色
             if (this.selectedObject) {
-                if (this.selectedObject.material.color_select) {
-                    this.selectedObject.material.color = this.selectedObject.material.color_select.clone();
-                    this.selectedObject.material.color_select = undefined;
+                this.unselect_object(this.selectedObject);
+                for (let i = 0; i < this.highlight_links.length; ++i) {
+                    const link = this.highlight_links[i];
+                    this.unselect_object(link);
                 }
+                this.highlight_links = [];
             }
             const {offsetX, offsetY} = e;
             const rect = this.getRenderRect();
@@ -144,20 +169,53 @@ export default {
             raycaster.setFromCamera( pointer, camera );
             const intersects = raycaster.intersectObject( scene, true );
             if (intersects.length > 0) {
-                console.log('intersects:', intersects);
-                const res = intersects.filter( function (res) {
-                    return res && res.object;
-                })[0];
-                if (res && res.object) {
-                    this.selectedObject = res.object;
-                    this.selectedObject.material.color_select = this.selectedObject.material.color.clone();
-                    this.selectedObject.material.color.set('#f00');
+                let target = undefined;
+                for (let i = 0; i < intersects.length; ++i) {
+                    const item = intersects[i].object;
+                    if (byq_select_items.includes(item.name)) {
+                        target = item;
+                        break;
+                    } else {
+                        const parent = item.parent;
+                        if (byq_select_items.includes(parent.name)) {
+                            target = parent;
+                            break;
+                        }
+                    }
+                }
+                console.log('intersects:', target);
+                if (target) {
+                    this.selectedObject = target;
+                    this.select_object(this.selectedObject);
 
                     // 释放选中事件
-                    this.$emit('object-select', res.object.name);
+                    this.$emit('object-select', this.selectedObject.name);
+                    // 高亮蚂蚁线
+                    this.highlight_links = this.get_relation_object_by_name(this.selectedObject.name);
+                    console.log('highlight_links:', this.highlight_links);
+                    for (let i = 0; i < this.highlight_links.length; ++i) {
+                        const link = this.highlight_links[i];
+                        this.select_object(link);
+                    }
+                } else {
+                    this.selectedObject = undefined;
+                    // 取消高亮蚂蚁线
+                    for (let i = 0; i < this.highlight_links.length; ++i) {
+                        const link = this.highlight_links[i];
+                        this.unselect_object(link);
+                    }
+                    this.highlight_links = [];
                 }
             } else {
                 console.log('no intersects');
+
+                // 取消高亮蚂蚁线
+                console.log('highlight_links:', this.highlight_links);
+                for (let i = 0; i < this.highlight_links.length; ++i) {
+                    const link = this.highlight_links[i];
+                    this.unselect_object(link);
+                }
+                this.highlight_links = [];
             }
         },
         on_window_resize() {
@@ -189,6 +247,11 @@ export default {
         getObjectByName(name) {
             return scene.getObjectByName(name);
         },
+        set_object_opacity_by_name(name, opacity) {
+            const object = scene.getObjectByName(name);
+            if (object == undefined) return;
+            this.set_object_opacity(object, opacity);
+        },
         set_object_opacity(object, opacity) {
             if (object.type == 'Group') {
                 for (let i = 0; i < object.children.length; ++i) {
@@ -219,19 +282,12 @@ export default {
                 object.material.color.set(color);
             }
         },
+        set_object_visible_by_name(name, visible) {
+            const object = scene.getObjectByName(name);
+            if (object == undefined) return;
+            object.visible = visible;
+        },
         set_object_visible(object, visible) {
-            // if (object.type == 'Group') {
-            //     for (let i = 0; i < object.children.length; ++i) {
-            //         const child = object.children[i];
-            //         if (child.type == 'Group') {
-            //             this.set_object_visible(child, visible);
-            //         } else if (child.type == 'Mesh') {
-            //             child.visible = visible;
-            //         }
-            //     }
-            // } else if (object.type == 'Mesh') {
-            //     object.visible = visible;
-            // }
             object.visible = visible;
         },
         set_object_emissive(object, color, intensity = 5.0) {
@@ -248,6 +304,51 @@ export default {
             } else if (object.type == 'Mesh') {
                 object.material.emissive.set(color);
                 object.material.emissiveIntensity = intensity;
+            }
+        },
+        select_object(object) {
+            if (object.type == 'Mesh') {
+                if (object.material_origin == undefined)  {
+                    object.material_origin = object.material;
+                    object.material = new THREE.MeshBasicMaterial({color:0xff0000});
+                }
+            } else if (object.type == 'Group') {
+                for (let i = 0; i < object.children.length; ++i) {
+                    const child = object.children[i];
+                    if (child.material_origin == undefined) {
+                        child.material_origin = child.material;
+                        child.material = new THREE.MeshBasicMaterial({color:0xff0000});
+                    }
+                }
+            } else if (object.type == 'Points') {
+                if (object.material_origin == undefined) {
+                    object.material_origin = object.material;
+                    object.material = new THREE.PointsMaterial({color: 0xff0000, size: 4.0});
+                }
+            }
+        },
+        unselect_object(object) {
+            if (object.type == 'Mesh') {
+                if (object.material_origin) {
+                    object.material.dispose();
+                    object.material = object.material_origin;
+                    object.material_origin = undefined;
+                }
+            } else if (object.type == 'Group') {
+                for (let i = 0; i < object.children.length; ++i) {
+                    const child = object.children[i];
+                    if (child.material_origin) {
+                        child.material.dispose();
+                        child.material = child.material_origin;
+                        child.material_origin = undefined;
+                    }
+                }
+            } else if (object.type == 'Points') {
+                if (object.material_origin) {
+                    object.material.dispose();
+                    object.material = object.material_origin;
+                    object.material_origin = undefined;
+                }
             }
         },
         /**
@@ -286,34 +387,38 @@ export default {
                         this.set_object_twinkle(child, color);
                     } else {
                         if (color) {
-                            if (child.material.color_origin == undefined) {
-                                child.material.color_origin = child.material.color.clone();
-                                child.material.color.set(color);
+                            if (child.material_origin == undefined) {
+                                child.material_origin = child.material;
+                                child.material = new THREE.MeshBasicMaterial({color: color});
                             } else {
-                                child.material.color.copy(child.material.color_origin);
-                                child.material.color_origin = undefined;
+                                child.material.dispose();
+                                child.material = child.material_origin;
+                                child.material_origin = undefined;
                             }
                         } else {
-                            if (child.material.color_origin) {
-                                child.material.color.copy(child.material.color_origin);
-                                child.material.color_origin = undefined;
+                            if (child.material_origin) {
+                                child.material.dispose();
+                                child.material = child.material_origin;
+                                child.material_origin = undefined;
                             }
                         }
                     }
                 }
             } else if (object.type == 'Mesh') {
                 if (color) {
-                    if (object.material.color_origin == undefined) {
-                        object.material.color_origin = object.material.color.clone();
-                        object.material.color.set(color);
+                    if (object.material_origin == undefined) {
+                        object.material_origin = object.material;
+                        object.material = new THREE.MeshBasicMaterial({color: color});
                     } else {
-                        object.material.color.copy(object.material.color_origin);
-                        object.material.color_origin = undefined;
+                        object.material.dispose();
+                        object.material = object.material_origin;
+                        object.material_origin = undefined;
                     }
                 } else {
-                    if (object.material.color_origin) {
-                        object.material.color.copy(child.material.color_origin);
-                        object.material.color_origin = undefined;
+                    if (object.material_origin) {
+                        object.material.dispose();
+                        object.material = object.material_origin;
+                        object.material_origin = undefined;
                     }
                 }
             }
@@ -336,7 +441,7 @@ export default {
             if (this.ripple_tween == undefined) {
                 // const worldPosition = object.position.clone().applyMatrix4(object.matrixWorld);
                 const worldPosition = new THREE.Vector3().setFromMatrixPosition(object.matrixWorld);
-                console.log('ripple_object position:', worldPosition);
+                // console.log('ripple_object position:', worldPosition);
                 if (this.rippleInner == undefined) {
                     this.rippleInner = new THREE.Mesh(
                         new THREE.SphereGeometry(3, 32, 16),
@@ -379,6 +484,45 @@ export default {
         /**
          * 蚂蚁线效果
          */
+        get_relation_object_by_name(name) {
+            let objects = [];
+            for (let i = 0; i < this.relation_name_list.length; ++i) {
+                const link_name = this.relation_name_list[i];
+                const names = link_name.split('_');
+                if (names.includes(name)) {
+                    const object = scene.getObjectByName(link_name);
+                    if (object) {
+                        objects.push(object);
+                    }
+                }
+            }
+            return objects;
+        },
+        show_relation_object_by_name(name) {
+            if (name == undefined || name.length == 0) {
+                for (let i = 0; i < this.relation_name_list.length; ++i) {
+                    const link_name = this.relation_name_list[i];
+                    this.set_object_visible_by_name(link_name, true);
+                }
+            } else {
+                for (let i = 0; i < this.relation_name_list.length; ++i) {
+                    const link_name = this.relation_name_list[i];
+                    const names = link_name.split('_');
+                    if (names.includes(name)) {
+                        this.set_object_visible_by_name(link_name, true);
+                    } else {
+                        this.set_object_opacity_by_name(link_name, false);
+                    }
+                }
+            }
+        },
+        relation_object_by_name(name1, name2) {
+            const object1 = scene.getObjectByName(name1);
+            if (object1 == undefined) return;
+            const object2 = scene.getObjectByName(name2);
+            if (object2 == undefined) return;
+            this.relation_object(object1, object2);
+        },
         relation_object(object1, object2) {
             const link_name = object1.name + '_' + object2.name;
             const link_object = this.getObjectByName(link_name); 
@@ -387,7 +531,7 @@ export default {
             }
             const position1 = new THREE.Vector3().setFromMatrixPosition(object1.matrixWorld);
             const position2 = new THREE.Vector3().setFromMatrixPosition(object2.matrixWorld);
-            console.log('relation_object position1:', position1, ', position2:', position2);
+            // console.log('relation_object position1:', position1, ', position2:', position2);
             const insert = new THREE.Vector3();
             const vertices = [];
             const orders = [];
@@ -406,7 +550,8 @@ export default {
                 fragmentShader: RelationLineFlag
             })
             const mesh = new THREE.Points( geometry, shaderMaterial );
-            mesh.name = object1.name + '_' + object2.name;
+            mesh.name = link_name;
+            this.relation_name_list.push(link_name);
             scene.add( mesh );
         },
         remove_relation_object(object1, object2) {
@@ -414,6 +559,12 @@ export default {
             const link_object = this.getObjectByName(link_name);
             if (link_object) {
                 scene.remove(link_object);
+                const index = this.relation_name_list.findIndex((item) => {
+                    return item == link_name;
+                });
+                if (index != -1) {
+                    this.relation_name_list.splice(index, 1);
+                }
             }
         },
         coordinateToScreen(position) {

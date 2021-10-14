@@ -12,22 +12,7 @@ module.exports = {
                 {from: 'static', to: 'static'}
             ])
         ],
-        module: {
-            rules: [
-                {
-                    test: /\.glsl$/,
-                    use: [
-                        {
-                            loader: 'webpack-glsl'
-                        }
-                    ]
-                }
-            ]
-        }
     },
-    // chainWebpack: (config) => {
-        
-    // },
     devServer: {
         port: 8081
     }
