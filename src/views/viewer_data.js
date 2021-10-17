@@ -180,4 +180,92 @@ for (let i = 0; i < byq_relation_trees.length; ++i) {
     }
 }
 
-export {byq_relation_trees, byq_select_items};
+const gis_relation_trees = [
+    {
+        name: '雾汇聚报警节点1',
+        children: [
+            {
+                name: '特高频局放IPT节点A',
+                type: '特高频局放',
+                children: [
+                    {name: '特高频局放传感器1'}
+                ]
+            },
+            {
+                name: '特高频局放IPT节点B',
+                type: '特高频局放',
+                children: [
+                    {name: '特高频局放传感器2'}
+                ]
+            },
+            {
+                name: '特高频局放IPT节点C',
+                type: '特高频局放',
+                children: [
+                    {name: '特高频局放传感器3'}
+                ]
+            },
+            {
+                name: '特高频局放IPT节点D',
+                type: '特高频局放',
+                children: [
+                    {name: '特高频局放传感器4'}
+                ]
+            },
+        ]
+    },
+    {
+        name: '雾汇聚报警节点2',
+        children: [
+            {
+                name: '特高频局放IPT节点E',
+                type: '特高频局放',
+                children: [
+                    {name: '特高频局放传感器5'}
+                ]
+            },
+            {
+                name: '特高频局放IPT节点F',
+                type: '特高频局放',
+                children: [
+                    {name: '特高频局放传感器6'}
+                ]
+            },
+            {
+                name: '特高频局放IPT节点G',
+                type: '特高频局放',
+                children: [
+                    {name: '特高频局放传感器7'}
+                ]
+            },
+            {
+                name: '特高频局放IPT节点H',
+                type: '特高频局放',
+                children: [
+                    {name: '特高频局放传感器8'}
+                ]
+            },
+            {
+                name: '特高频局放IPT节点I',
+                type: '特高频局放',
+                children: [
+                    {name: '特高频局放传感器9'}
+                ]
+            },
+        ]
+    }
+]
+const gis_select_items = [];
+for (let i = 0; i < gis_relation_trees.length; ++i) {
+    const item_level_1 = gis_relation_trees[i];
+    for (let j = 0; j < item_level_1.children.length; ++j) {
+        const item_level_2 = item_level_1.children[j];
+        gis_select_items.push(item_level_2.name);
+        for (let k = 0; k < item_level_2.children.length; ++k) {
+            const item_level_3 = item_level_2.children[k];
+            gis_select_items.push(item_level_3.name);
+        }
+    }
+}
+
+export {byq_relation_trees, byq_select_items, gis_relation_trees, gis_select_items};

@@ -7,7 +7,11 @@
             <div class="btn-item" @click="test_function4">涟漪效果/取消</div>
             <!-- <div class="btn-item" @click="test_function5">蚂蚁线效果</div>
             <div class="btn-item" @click="test_function6">蚂蚁线取消</div> -->
+            <div class="btn-item" @click="test_function8">设置物体损坏状态</div>
+            <div class="btn-item" @click="test_function9">取消物体损坏状态</div>
             <div class="btn-item" @click="test_function7">添加选中事件</div>
+            <div class="btn-item" @click="test_function10">切换场景</div>
+            <!-- <div class="btn-item" @click="test_function11">根据传感器类型过滤</div> -->
         </div>
         <Viewer3d ref="viewer3d" @object-select="handleSelectObject"></Viewer3d>
     </div>
@@ -30,7 +34,7 @@ export default {
             this.$refs.viewer3d.set_object_opacity(object, 0.1);
         },
         test_function2() {
-            const object = this.$refs.viewer3d.getObjectByName('超声局放传感器1');
+            const object = this.$refs.viewer3d.getObjectByName('超声局放传感器2');
             console.log('test2:', object);
             this.$refs.viewer3d.fly_to_object(object);
         },
@@ -88,6 +92,22 @@ export default {
         test_function7() {
             this.$refs.viewer3d.canSelected = true;
         },
+        test_function8() {
+            this.$refs.viewer3d.set_object_state_repair_by_name('振动IPT节点C', true);
+        },
+        test_function9() {
+            this.$refs.viewer3d.set_object_state_repair_by_name('振动IPT节点C', false);
+        },
+        test_function10() {
+            if (this.$refs.viewer3d.mode == 'byq') {
+                this.$refs.viewer3d.changeMode('gis');
+            } else if (this.$refs.viewer3d.mode == 'gis') {
+                this.$refs.viewer3d.changeMode('byq');
+            }
+        },
+        test_function11() {
+            
+        }
     }
 }
 </script>

@@ -5,11 +5,11 @@ varying float vOrder;
 void main() {
     float span = abs(time - vOrder);
 
-    if (span < 9.0) {
-        float opacityTemp = (0.1 - span) * 10.0;
-        gl_FragColor = vec4(0,1,1,opacityTemp);
+    if (span < 10.0) {
+        float opacityTemp = 1.0 - (abs(5.0 - span) / 5.0);
+        gl_FragColor = vec4(0.0,1.0,1.0,opacityTemp);
     } else {
-        gl_FragColor = vec4(0.4,0.4,0.4,1);
+        gl_FragColor = vec4(0.87,0.87,0.89,0.8);
     }
 }
 `

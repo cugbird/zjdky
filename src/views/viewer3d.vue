@@ -15,7 +15,8 @@ const TWEEN = require('@tweenjs/tween.js');
 import RelationLineVert  from '@/shaders/relationLineVert.glsl.js';
 import RelationLineFlag from '@/shaders/relationLineFlag.glsl.js';
 
-import {byq_relation_trees, byq_select_items} from './viewer_data';
+import {byq_relation_trees, byq_select_items, gis_relation_trees, gis_select_items} from './viewer_data';
+import {viewer3d_sittings} from './viewer_setting';
 
 // threejs全局变量，不放在data中，有利于渲染速度
 let scene = undefined;
@@ -28,9 +29,13 @@ let raycaster = undefined;
 export default {
     data() {
         return {
-            byqModels: [],
+            mode: 'byq',  // byq or gis
+            models: {}, // byq + gis model
+
+            relation_trees: [], // 蚂蚁线元数据
+            select_items: [], // 可选择的对象
+
             twinkle_tween: undefined, // 闪烁
-            twinkle_index: 0,
             ripple_tween: undefined, // 涟漪
             rippleInner: undefined, // 涟漪
             rippleOuter: undefined, // 涟漪
@@ -40,9 +45,9 @@ export default {
                     value: 0.0
                 }
             },
-            need_relation: true,
-            relation_name_list: [],
-            highlight_links: [],
+            need_relation: true, // 蚂蚁线流动效果控制开关
+            relation_link_names: [], // 当前蚂蚁线的名称集合
+            highlight_links: [], // 高亮的蚂蚁线
             // 选中的物体
             selectedObject: undefined,
             canSelected: false, // 是否开启选中事件
@@ -52,7 +57,8 @@ export default {
     },
     mounted() {
         this.init3D();
-        this.loadModel('/static/model/byq_001.FBX');
+        this.loadModel('/static/model/byq_001.FBX', 'byq');
+        this.loadModel('/static/model/gis_001.FBX', 'gis');
     },
     methods: {
         /**
@@ -80,8 +86,8 @@ export default {
 
             scene = new THREE.Scene();
             // 天空盒子
-            const path = "/static/img/cube/dark-s_";
-            const format = '.jpg';
+            const path = "/static/img/cube2/dark-s_";
+            const format = '.png';
             const urls = [
                 path + 'px' + format,path + 'nx' + format,
                 path + 'py' + format,path + 'ny' + format,
@@ -122,23 +128,67 @@ export default {
             // 进入渲染循环
             this.animate();
         },
-        loadModel(url) {
+        loadModel(url, name) {
             const loader = new FBXLoader();
             loader.load(url, (object) => {
-                console.log('load fbx data:', object);
+                console.log('load fbx data name:', name, ', object:', object);
                 object.renderOrder = 10;
-                scene.add(object);
-
-                this.loadBusiness();
+                object.name = name;
+                if (name == 'byq') {
+                    this.models.byq = object;
+                } else {
+                    this.models.gis = object;
+                }
+                if (this.mode == name) {
+                    this.changeMode(name, true);
+                }
             });
         },
-        loadBusiness() {
-            this.set_object_opacity_by_name('变压器', 0.3);
-            this.loadRelations();
+        changeMode(new_mode, force) {
+            if (!force) {
+                if (this.mode == new_mode) {
+                    return;
+                }
+            }
+            const byq = this.models.byq;
+            const gis = this.models.gis;
+            if (new_mode == 'byq') {
+                scene.remove(gis);
+                scene.add(byq);
+                const body = scene.getObjectByName('变压器');
+                if (body) {
+                    this.set_object_opacity(body, 0.3);
+                }
+            } else if (new_mode == 'gis') {
+                scene.remove(byq);
+                scene.add(gis);
+                const body = scene.getObjectByName('GIS设备');
+                if (body) {
+                    this.set_object_opacity(body, 0.3);
+                }
+            }
+            this.mode = new_mode;
+            
+            this.load_business(new_mode);
         },
-        loadRelations() {
-            for (let i = 0; i < byq_relation_trees.length; ++i) {
-                const item_level_1 = byq_relation_trees[i];
+        load_business(mode) {
+            console.log('models:', this.models);
+            if (mode == 'byq') {
+                this.relation_trees = byq_relation_trees;
+                this.select_items = byq_select_items;
+            } else {
+                this.relation_trees = gis_relation_trees;
+                this.select_items = gis_select_items;
+            }
+            // 添加蚂蚁线
+            this.load_relation_links();
+        },
+        load_relation_links() {
+            console.log('load_relation_links');
+            // 先去除原来的蚂蚁线
+            this.remove_relation_links();
+            for (let i = 0; i < this.relation_trees.length; ++i) {
+                const item_level_1 = this.relation_trees[i];
                 for (let j = 0; j < item_level_1.children.length; ++j) {
                     const item_level_2 = item_level_1.children[j];
                     this.relation_object_by_name(item_level_2.name, item_level_1.name);
@@ -148,6 +198,19 @@ export default {
                     }
                 }
             }
+        },
+        remove_relation_links() {
+            for (let i = 0; i < this.relation_link_names.length; ++i) {
+                const link_name = this.relation_link_names[i];
+                const link_item = scene.getObjectByName(link_name);
+                if (link_item) {
+                    scene.remove(link_item);
+                }
+            }
+            this.relation_link_names = [];
+        },
+        reset_scene() {
+
         },
         mouse_event_click(e) {
             if (!this.canSelected) {return;}
@@ -172,12 +235,12 @@ export default {
                 let target = undefined;
                 for (let i = 0; i < intersects.length; ++i) {
                     const item = intersects[i].object;
-                    if (byq_select_items.includes(item.name)) {
+                    if (this.select_items.includes(item.name)) {
                         target = item;
                         break;
                     } else {
                         const parent = item.parent;
-                        if (byq_select_items.includes(parent.name)) {
+                        if (this.select_items.includes(parent.name)) {
                             target = parent;
                             break;
                         }
@@ -186,7 +249,7 @@ export default {
                 console.log('intersects:', target);
                 if (target) {
                     this.selectedObject = target;
-                    this.select_object(this.selectedObject);
+                    this.select_object(this.selectedObject, viewer3d_sittings.select_color);
 
                     // 释放选中事件
                     this.$emit('object-select', this.selectedObject.name);
@@ -195,7 +258,7 @@ export default {
                     console.log('highlight_links:', this.highlight_links);
                     for (let i = 0; i < this.highlight_links.length; ++i) {
                         const link = this.highlight_links[i];
-                        this.select_object(link);
+                        this.select_object(link, viewer3d_sittings.select_color);
                     }
                 } else {
                     this.selectedObject = undefined;
@@ -306,24 +369,24 @@ export default {
                 object.material.emissiveIntensity = intensity;
             }
         },
-        select_object(object) {
+        select_object(object, color) {
             if (object.type == 'Mesh') {
                 if (object.material_origin == undefined)  {
                     object.material_origin = object.material;
-                    object.material = new THREE.MeshBasicMaterial({color:0xff0000});
+                    object.material = new THREE.MeshBasicMaterial({color:color});
                 }
             } else if (object.type == 'Group') {
                 for (let i = 0; i < object.children.length; ++i) {
                     const child = object.children[i];
                     if (child.material_origin == undefined) {
                         child.material_origin = child.material;
-                        child.material = new THREE.MeshBasicMaterial({color:0xff0000});
+                        child.material = new THREE.MeshBasicMaterial({color:color});
                     }
                 }
             } else if (object.type == 'Points') {
                 if (object.material_origin == undefined) {
                     object.material_origin = object.material;
-                    object.material = new THREE.PointsMaterial({color: 0xff0000, size: 4.0});
+                    object.material = new THREE.PointsMaterial({color: color, size: 4.0});
                 }
             }
         },
@@ -486,8 +549,8 @@ export default {
          */
         get_relation_object_by_name(name) {
             let objects = [];
-            for (let i = 0; i < this.relation_name_list.length; ++i) {
-                const link_name = this.relation_name_list[i];
+            for (let i = 0; i < this.relation_link_names.length; ++i) {
+                const link_name = this.relation_link_names[i];
                 const names = link_name.split('_');
                 if (names.includes(name)) {
                     const object = scene.getObjectByName(link_name);
@@ -500,13 +563,13 @@ export default {
         },
         show_relation_object_by_name(name) {
             if (name == undefined || name.length == 0) {
-                for (let i = 0; i < this.relation_name_list.length; ++i) {
-                    const link_name = this.relation_name_list[i];
+                for (let i = 0; i < this.relation_link_names.length; ++i) {
+                    const link_name = this.relation_link_names[i];
                     this.set_object_visible_by_name(link_name, true);
                 }
             } else {
-                for (let i = 0; i < this.relation_name_list.length; ++i) {
-                    const link_name = this.relation_name_list[i];
+                for (let i = 0; i < this.relation_link_names.length; ++i) {
+                    const link_name = this.relation_link_names[i];
                     const names = link_name.split('_');
                     if (names.includes(name)) {
                         this.set_object_visible_by_name(link_name, true);
@@ -551,7 +614,7 @@ export default {
             })
             const mesh = new THREE.Points( geometry, shaderMaterial );
             mesh.name = link_name;
-            this.relation_name_list.push(link_name);
+            this.relation_link_names.push(link_name);
             scene.add( mesh );
         },
         remove_relation_object(object1, object2) {
@@ -559,11 +622,11 @@ export default {
             const link_object = this.getObjectByName(link_name);
             if (link_object) {
                 scene.remove(link_object);
-                const index = this.relation_name_list.findIndex((item) => {
+                const index = this.relation_link_names.findIndex((item) => {
                     return item == link_name;
                 });
                 if (index != -1) {
-                    this.relation_name_list.splice(index, 1);
+                    this.relation_link_names.splice(index, 1);
                 }
             }
         },
@@ -577,6 +640,63 @@ export default {
             outPos.y = Math.round(screen.y * b + b);
             return outPos;
         },
+        // 设置物体的维修状态
+        set_object_state_repair_by_name(name, need_repair) {
+            const object = scene.getObjectByName(name);
+            if (object == undefined) {
+                return;
+            }
+            if (need_repair) {
+                // 物体颜色
+                this.select_object(object, viewer3d_sittings.repair_color);
+                // 连线颜色
+                const links = this.get_relation_object_by_name(name);
+                for (let i = 0; i < links.length; ++i) {
+                    const link_item = links[i];
+                    this.select_object(link_item, viewer3d_sittings.repair_color);
+                }
+                // 添加sprite
+                this.add_object_sprite(object);
+            } else {
+                // 物体颜色
+                this.unselect_object(object);
+                // 连线颜色
+                const links = this.get_relation_object_by_name(name);
+                for (let i = 0; i < links.length; ++i) {
+                    const link_item = links[i];
+                    this.unselect_object(link_item);
+                }
+                // 删除sprite
+                this.remove_object_sprite(object);
+            }
+        },
+        add_object_sprite(object) {
+            const sprite_name = object.name + '_repair';
+            const sprite = scene.getObjectByName(sprite_name);
+            // 添加维修状态
+            if (sprite) {
+                // 已经存在
+                sprite.visible = true;
+            } else {
+                const position = new THREE.Vector3().setFromMatrixPosition(object.matrixWorld);
+                console.log('sprite position:', position);
+                position.y += 25;
+                const map = new THREE.TextureLoader().load('/static/icon/repair.png');
+                const material = new THREE.SpriteMaterial({map: map});
+                const sprite = new THREE.Sprite( material );
+                sprite.position.copy(position);
+                sprite.scale.setScalar(10);
+                sprite.name = object.name + '_repair';
+                scene.add(sprite);
+            }
+        },
+        remove_object_sprite(object) {
+            const sprite_name = object.name + '_repair';
+            const sprite = scene.getObjectByName(sprite_name);
+            if (sprite) {
+                sprite.visible = false;
+            }
+        }
     }
 }
 </script>
