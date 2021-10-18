@@ -1,17 +1,18 @@
 <template>
     <div id="app">
         <div class="left-wrap">
-            <div class="btn-item" @click="test_function1">透明度切换</div>
+            <div class="btn-item" @click="test_function0">切换场景</div>
+            <!-- <div class="btn-item" @click="test_function1">透明度切换</div> -->
             <div class="btn-item" @click="test_function2">飞行动画测试</div>
-            <div class="btn-item" @click="test_function3">闪烁效果/取消</div>
-            <div class="btn-item" @click="test_function4">涟漪效果/取消</div>
-            <!-- <div class="btn-item" @click="test_function5">蚂蚁线效果</div>
-            <div class="btn-item" @click="test_function6">蚂蚁线取消</div> -->
-            <div class="btn-item" @click="test_function8">设置物体损坏状态</div>
-            <div class="btn-item" @click="test_function9">取消物体损坏状态</div>
-            <div class="btn-item" @click="test_function7">添加选中事件</div>
-            <div class="btn-item" @click="test_function10">切换场景</div>
-            <!-- <div class="btn-item" @click="test_function11">根据传感器类型过滤</div> -->
+            <div class="btn-item" @click="test_function3">开启闪烁效果</div>
+            <div class="btn-item" @click="test_function4">取消闪烁效果</div>
+            <div class="btn-item" @click="test_function5">开启涟漪效果</div>
+            <div class="btn-item" @click="test_function6">取消涟漪效果</div>
+            <div class="btn-item" @click="test_function7">设置物体损坏状态</div>
+            <div class="btn-item" @click="test_function8">取消物体损坏状态</div>
+            <div class="btn-item" @click="test_function9">添加选中事件</div>
+            <div class="btn-item" @click="test_function10">移除选中事件</div>
+            
         </div>
         <Viewer3d ref="viewer3d" @object-select="handleSelectObject"></Viewer3d>
     </div>
@@ -28,6 +29,13 @@ export default {
         handleSelectObject(name) {
             console.log('select object:', name);
         },
+        test_function0() {
+            if (this.$refs.viewer3d.mode == 'byq') {
+                this.$refs.viewer3d.change_mode('gis');
+            } else if (this.$refs.viewer3d.mode == 'gis') {
+                this.$refs.viewer3d.change_mode('byq');
+            }
+        },
         test_function1() {
             const object = this.$refs.viewer3d.getObjectByName('变压器');
             console.log('test1:', object);
@@ -39,75 +47,45 @@ export default {
             this.$refs.viewer3d.fly_to_object(object);
         },
         test_function3() {
-            const object = this.$refs.viewer3d.getObjectByName('振动IPT节点D');
-            console.log('test3:', object);
-            this.$refs.viewer3d.twinkle_object(object);
+            const object1 = this.$refs.viewer3d.getObjectByName('振动IPT节点C');
+            this.$refs.viewer3d.twinkle_object(object1);
+
+            const object2 = this.$refs.viewer3d.getObjectByName('振动IPT节点D');
+            this.$refs.viewer3d.twinkle_object(object2);
         },
         test_function4() {
-            // const objectByq = this.$refs.viewer3d.getObjectByName('变压器Group');
-            // this.$refs.viewer3d.set_object_visible(objectByq, false);
-            const object = this.$refs.viewer3d.getObjectByName('温度IPT节点A');
-            console.log('test4:', object);
-            this.$refs.viewer3d.ripple_object(object);
+            const object1 = this.$refs.viewer3d.getObjectByName('振动IPT节点C');
+            this.$refs.viewer3d.untwinkle_object(object1);
+
+            const object2 = this.$refs.viewer3d.getObjectByName('振动IPT节点D');
+            this.$refs.viewer3d.untwinkle_object(object2);
         },
         test_function5() {
-            const object = this.$refs.viewer3d.getObjectByName('变压器Group');
-            this.$refs.viewer3d.set_object_opacity(object, 0.5);
-
-            const object1 = this.$refs.viewer3d.getObjectByName('温度传感器001');
-            const object2 = this.$refs.viewer3d.getObjectByName('盒子002');
-
-            // console.log('test5- object1:', object1, ', object2:', object2);
-
-            this.$refs.viewer3d.relation_object(object1, object2);
-
-            const object3 = this.$refs.viewer3d.getObjectByName('温度传感器002');
-            this.$refs.viewer3d.relation_object(object3, object2);
-
-            const object4 = this.$refs.viewer3d.getObjectByName('超声局放001');
-            const object5 = this.$refs.viewer3d.getObjectByName('盒子006');
-
-            this.$refs.viewer3d.relation_object(object4, object5);
-
+            const object1 = this.$refs.viewer3d.getObjectByName('温度IPT节点A');
+            this.$refs.viewer3d.ripple_object(object1);
+            const object2 = this.$refs.viewer3d.getObjectByName('温度IPT节点B');
+            this.$refs.viewer3d.ripple_object(object2);
         },
         test_function6() {
-            const object = this.$refs.viewer3d.getObjectByName('变压器Group');
-            this.$refs.viewer3d.set_object_opacity(object, 1.0);
-
-            const object1 = this.$refs.viewer3d.getObjectByName('温度传感器001');
-            const object2 = this.$refs.viewer3d.getObjectByName('盒子002');
-
-            // console.log('test5- object1:', object1, ', object2:', object2);
-
-            this.$refs.viewer3d.remove_relation_object(object1, object2);
-
-            const object3 = this.$refs.viewer3d.getObjectByName('温度传感器002');
-            this.$refs.viewer3d.remove_relation_object(object3, object2);
-
-            const object4 = this.$refs.viewer3d.getObjectByName('超声局放001');
-            const object5 = this.$refs.viewer3d.getObjectByName('盒子006');
-
-            this.$refs.viewer3d.remove_relation_object(object4, object5);
+            const object1 = this.$refs.viewer3d.getObjectByName('温度IPT节点A');
+            this.$refs.viewer3d.unripple_object(object1);
+            const object2 = this.$refs.viewer3d.getObjectByName('温度IPT节点B');
+            this.$refs.viewer3d.unripple_object(object2);
         },
         test_function7() {
-            this.$refs.viewer3d.canSelected = true;
+            this.$refs.viewer3d.repair_object_by_name('超声局放IPT节点A');
+            this.$refs.viewer3d.repair_object_by_name('超声局放IPT节点B');
         },
         test_function8() {
-            this.$refs.viewer3d.set_object_state_repair_by_name('振动IPT节点C', true);
+            this.$refs.viewer3d.unrepair_object_by_name('超声局放IPT节点A');
+            this.$refs.viewer3d.unrepair_object_by_name('超声局放IPT节点B');
         },
         test_function9() {
-            this.$refs.viewer3d.set_object_state_repair_by_name('振动IPT节点C', false);
+            this.$refs.viewer3d.canSelected = true;
         },
         test_function10() {
-            if (this.$refs.viewer3d.mode == 'byq') {
-                this.$refs.viewer3d.changeMode('gis');
-            } else if (this.$refs.viewer3d.mode == 'gis') {
-                this.$refs.viewer3d.changeMode('byq');
-            }
+            this.$refs.viewer3d.canSelected = false;
         },
-        test_function11() {
-            
-        }
     }
 }
 </script>

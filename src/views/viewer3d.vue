@@ -14,6 +14,8 @@ const TWEEN = require('@tweenjs/tween.js');
 // 蚂蚁线shader
 import RelationLineVert  from '@/shaders/relationLineVert.glsl.js';
 import RelationLineFlag from '@/shaders/relationLineFlag.glsl.js';
+import RelationLineVert2  from '@/shaders/relationLineVert2.glsl.js';
+import RelationLineFlag2 from '@/shaders/relationLineFlag2.glsl.js';
 
 import {byq_relation_trees, byq_select_items, gis_relation_trees, gis_select_items} from './viewer_data';
 import {viewer3d_sittings} from './viewer_setting';
@@ -29,27 +31,42 @@ let raycaster = undefined;
 export default {
     data() {
         return {
-            mode: 'byq',  // byq or gis
+            mode: '',  // byq or gis
             models: {}, // byq + gis model
+            scene_datas: {
+                'byq': {
+                    model: undefined, // 模型
+                    relation_trees: [], // 蚂蚁线元数据
+                    can_select_items: [], // 可选择的对象
+                    select_objects: [], // 当前选中的对象
+                    twinkles: [], // 闪烁效果
+                    ripples: [], // 涟漪效果
+                    repairs: [], // 维修效果
+                    link_items: [], // 蚂蚁线名称集合
+                    select_links: [], // 当前选中的蚂蚁线
+                },
+                'gis': {
+                    model: undefined, // 模型
+                    relation_trees: [], // 蚂蚁线元数据
+                    can_select_items: [], // 可选择的对象
+                    select_objects: [], // 当前选中的对象
+                    twinkles: [], // 闪烁效果
+                    ripples: [], // 涟漪效果
+                    repairs: [], // 维修效果
+                    link_items: [], // 蚂蚁线效果
+                    select_links: [], // 当前选中的蚂蚁线
+                }
+            },
+            scene_data: undefined,
 
-            relation_trees: [], // 蚂蚁线元数据
-            select_items: [], // 可选择的对象
-
-            twinkle_tween: undefined, // 闪烁
-            ripple_tween: undefined, // 涟漪
-            rippleInner: undefined, // 涟漪
-            rippleOuter: undefined, // 涟漪
             // 蚂蚁线
-            relations: {
+            relation_uniforms: {
                 time: {
                     value: 0.0
                 }
             },
             need_relation: true, // 蚂蚁线流动效果控制开关
-            relation_link_names: [], // 当前蚂蚁线的名称集合
-            highlight_links: [], // 高亮的蚂蚁线
-            // 选中的物体
-            selectedObject: undefined,
+
             canSelected: false, // 是否开启选中事件
 
             orbitCtrl: undefined, // scene操作控件
@@ -57,14 +74,15 @@ export default {
     },
     mounted() {
         this.init3D();
-        this.loadModel('/static/model/byq_001.FBX', 'byq');
-        this.loadModel('/static/model/gis_001.FBX', 'gis');
+        this.load_business();
+        this.load_model('/static/model/byq_001.FBX', 'byq');
+        this.load_model('/static/model/gis_001.FBX', 'gis');
     },
     methods: {
         /**
          * 获得画布大小
          */
-        getRenderRect() {
+        get_render_rect() {
             let width = this.$refs.viewerRef.clientWidth;
             let height = this.$refs.viewerRef.clientHeight;
             width = Math.floor(width);
@@ -79,7 +97,7 @@ export default {
          * 初始化三维场景
          */
         init3D() {
-            const rect = this.getRenderRect();
+            const rect = this.get_render_rect();
             camera = new THREE.PerspectiveCamera( 50, rect.width / rect.height, 0.01, 1000000 );
             camera.position.set( 0, 600, 600 );
             camera.lookAt(new THREE.Vector3(0, 0, 0));
@@ -128,119 +146,116 @@ export default {
             // 进入渲染循环
             this.animate();
         },
-        loadModel(url, name) {
+        load_business() {
+            this.scene_datas.byq.relation_trees = byq_relation_trees;
+            this.scene_datas.byq.can_select_items = byq_select_items;
+
+            this.scene_datas.gis.relation_trees = gis_relation_trees;
+            this.scene_datas.gis.can_select_items = gis_select_items;
+        },
+        load_model(url, name) {
             const loader = new FBXLoader();
             loader.load(url, (object) => {
                 console.log('load fbx data name:', name, ', object:', object);
                 object.renderOrder = 10;
                 object.name = name;
                 if (name == 'byq') {
-                    this.models.byq = object;
-                } else {
-                    this.models.gis = object;
+                    const body = object.getObjectByName('变压器');
+                    if (body) {
+                        this.set_object_opacity(body, 0.3);
+                    }
+                } else if (name == 'gis') {
+                    const body = object.getObjectByName('GIS设备');
+                    if (body) {
+                        this.set_object_opacity(body, 0.3);
+                    }
                 }
-                if (this.mode == name) {
-                    this.changeMode(name, true);
+                this.scene_datas[name].model = object;
+                if (name == 'byq') {
+                    this.change_mode(name);
                 }
             });
         },
-        changeMode(new_mode, force) {
-            if (!force) {
-                if (this.mode == new_mode) {
-                    return;
-                }
-            }
-            const byq = this.models.byq;
-            const gis = this.models.gis;
-            if (new_mode == 'byq') {
-                scene.remove(gis);
-                scene.add(byq);
-                const body = scene.getObjectByName('变压器');
-                if (body) {
-                    this.set_object_opacity(body, 0.3);
-                }
-            } else if (new_mode == 'gis') {
-                scene.remove(byq);
-                scene.add(gis);
-                const body = scene.getObjectByName('GIS设备');
-                if (body) {
-                    this.set_object_opacity(body, 0.3);
-                }
+        change_mode(new_mode) {
+            if (this.mode == new_mode) {
+                return;
             }
             this.mode = new_mode;
-            
-            this.load_business(new_mode);
-        },
-        load_business(mode) {
-            console.log('models:', this.models);
-            if (mode == 'byq') {
-                this.relation_trees = byq_relation_trees;
-                this.select_items = byq_select_items;
-            } else {
-                this.relation_trees = gis_relation_trees;
-                this.select_items = gis_select_items;
+            // remove old scene
+            if (this.scene_data) {
+                this.unselect_object_list(this.scene_data.select_objects);
+                this.scene_data.select_objects = [];
+                this.remove_relation_links(this.scene_data.link_items);
+                // this.scene_data.link_items = [];
+                this.hide_ripple_sphere_list(this.scene_data.ripples);
+                this.hide_repair_sprite_list(this.scene_data.repairs);
+
+                scene.remove(this.scene_data.model);
             }
-            // 添加蚂蚁线
+            // add new scene
+            this.scene_data = this.scene_datas[new_mode];
+            scene.add(this.scene_data.model);
             this.load_relation_links();
+            this.show_ripple_sphere_list(this.scene_data.ripples);
+            this.show_repair_sprite_list(this.scene_data.repairs);
         },
         load_relation_links() {
-            console.log('load_relation_links');
-            // 先去除原来的蚂蚁线
-            this.remove_relation_links();
-            for (let i = 0; i < this.relation_trees.length; ++i) {
-                const item_level_1 = this.relation_trees[i];
-                for (let j = 0; j < item_level_1.children.length; ++j) {
-                    const item_level_2 = item_level_1.children[j];
-                    this.relation_object_by_name(item_level_2.name, item_level_1.name);
-                    for (let k = 0; k < item_level_2.children.length; ++k) {
-                        const item_level_3 = item_level_2.children[k];
-                        this.relation_object_by_name(item_level_3.name, item_level_2.name);
+            if (this.scene_data.link_items.length == 0) {
+                for (let i = 0; i < this.scene_data.relation_trees.length; ++i) {
+                    const item_level_1 = this.scene_data.relation_trees[i];
+                    for (let j = 0; j < item_level_1.children.length; ++j) {
+                        const item_level_2 = item_level_1.children[j];
+                        this.relation_object_by_name(item_level_2.name, item_level_1.name);
+                        for (let k = 0; k < item_level_2.children.length; ++k) {
+                            const item_level_3 = item_level_2.children[k];
+                            this.relation_object_by_name(item_level_3.name, item_level_2.name);
+                        }
                     }
                 }
-            }
-        },
-        remove_relation_links() {
-            for (let i = 0; i < this.relation_link_names.length; ++i) {
-                const link_name = this.relation_link_names[i];
-                const link_item = scene.getObjectByName(link_name);
-                if (link_item) {
-                    scene.remove(link_item);
+            } else {
+                for (let i = 0; i < this.scene_data.link_items.length; ++i) {
+                    const link_item = this.scene_data.link_items[i];
+                    scene.add(link_item.inner);
+                    scene.add(link_item.outer);
                 }
             }
-            this.relation_link_names = [];
         },
-        reset_scene() {
-
+        remove_relation_links(list) {
+            for (let i = 0; i < list.length; ++i) {
+                const link_item = list[i];
+                scene.remove(link_item.inner);
+                scene.remove(link_item.outer);
+            }
         },
         mouse_event_click(e) {
             if (!this.canSelected) {return;}
             // 之前有选中的物体，则回退物体的颜色
-            if (this.selectedObject) {
-                this.unselect_object(this.selectedObject);
-                for (let i = 0; i < this.highlight_links.length; ++i) {
-                    const link = this.highlight_links[i];
-                    this.unselect_object(link);
-                }
-                this.highlight_links = [];
+            if (this.scene_data.select_objects.length > 0) {
+                this.unselect_object_list(this.scene_data.select_objects);
+                this.scene_data.select_objects = [];
+            }
+            if (this.scene_data.select_links.length > 0) {
+                this.unselect_link_list(this.scene_data.select_links);
+                this.scene_data.select_links = [];
             }
             const {offsetX, offsetY} = e;
-            const rect = this.getRenderRect();
+            const rect = this.get_render_rect();
             const pointer = {
                 x: (offsetX / rect.width) * 2 - 1,
                 y: -(offsetY / rect.height) * 2 + 1
             }
             raycaster.setFromCamera( pointer, camera );
-            const intersects = raycaster.intersectObject( scene, true );
+            const intersects = raycaster.intersectObject(scene, true);
             if (intersects.length > 0) {
                 let target = undefined;
                 for (let i = 0; i < intersects.length; ++i) {
                     const item = intersects[i].object;
-                    if (this.select_items.includes(item.name)) {
+                    if (this.scene_data.can_select_items.includes(item.name)) {
                         target = item;
                         break;
                     } else {
                         const parent = item.parent;
-                        if (this.select_items.includes(parent.name)) {
+                        if (this.scene_data.can_select_items.includes(parent.name)) {
                             target = parent;
                             break;
                         }
@@ -248,41 +263,39 @@ export default {
                 }
                 console.log('intersects:', target);
                 if (target) {
-                    this.selectedObject = target;
-                    this.select_object(this.selectedObject, viewer3d_sittings.select_color);
 
                     // 释放选中事件
-                    this.$emit('object-select', this.selectedObject.name);
+                    this.$emit('object-select', target.name);
                     // 高亮蚂蚁线
-                    this.highlight_links = this.get_relation_object_by_name(this.selectedObject.name);
-                    console.log('highlight_links:', this.highlight_links);
-                    for (let i = 0; i < this.highlight_links.length; ++i) {
-                        const link = this.highlight_links[i];
-                        this.select_object(link, viewer3d_sittings.select_color);
-                    }
-                } else {
-                    this.selectedObject = undefined;
-                    // 取消高亮蚂蚁线
-                    for (let i = 0; i < this.highlight_links.length; ++i) {
-                        const link = this.highlight_links[i];
-                        this.unselect_object(link);
-                    }
-                    this.highlight_links = [];
+                    this.scene_data.select_links = this.get_relation_link_by_name(target.name);
+                    // console.log('highlight_links:', this.scene_data.select_links);
+                    this.select_link_list(this.scene_data.select_links, viewer3d_sittings.link_select);
+                    // 选中了物体
+                    // this.select_object(target, viewer3d_sittings.select_color);
+                    this.scene_data.select_objects.push(target);
+                    // 如果选中的是ipt节点，高亮对应的传感器
+                    const sensor_items = this.get_relation_object_by_name(target.name);
+                    this.scene_data.select_objects.push(...sensor_items);
+                    // if (target.name.indexOf('IPT') != -1) {
+                        
+                    // }
+                    this.select_object_list(this.scene_data.select_objects, viewer3d_sittings.select_color);
                 }
             } else {
                 console.log('no intersects');
-
-                // 取消高亮蚂蚁线
-                console.log('highlight_links:', this.highlight_links);
-                for (let i = 0; i < this.highlight_links.length; ++i) {
-                    const link = this.highlight_links[i];
-                    this.unselect_object(link);
+                // 之前有选中的物体，则回退物体的颜色
+                if (this.scene_data.select_objects.length > 0) {
+                    this.unselect_object_list(this.scene_data.select_objects);
+                    this.scene_data.select_objects = [];
                 }
-                this.highlight_links = [];
+                if (this.scene_data.select_links.length > 0) {
+                    this.unselect_link_list(this.scene_data.select_links);
+                    this.scene_data.select_links = [];
+                }
             }
         },
         on_window_resize() {
-            const rect = this.getRenderRect();
+            const rect = this.get_render_rect();
             camera.aspect = rect.width / rect.height;
             camera.updateProjectionMatrix();
 
@@ -296,9 +309,9 @@ export default {
 
             // uniform
             if (this.need_relation) {
-                let newTime = this.relations.time.value + 0.5;
-                if (newTime > 100) {newTime = 0;}
-                this.relations.time.value = newTime;
+                let newTime = this.relation_uniforms.time.value + 0.2;
+                if (newTime > 5.0) {newTime = 0;}
+                this.relation_uniforms.time.value = newTime;
             }
         },
         ///////////////////////////////////////////////////
@@ -331,42 +344,10 @@ export default {
                 object.material.transparent = true;
             }
         },
-        set_object_color(object, color) {
-            if (object.type == 'Group') {
-                for (let i = 0; i < object.children.length; ++i) {
-                    const child = object.children[i];
-                    if (child.type == 'Group') {
-                        this.set_object_color(child, color);
-                    } else if (child.type == 'Mesh') {
-                        child.material.color.set(color);
-                    }
-                }
-            } else if (object.type == 'Mesh') {
-                object.material.color.set(color);
-            }
-        },
-        set_object_visible_by_name(name, visible) {
-            const object = scene.getObjectByName(name);
-            if (object == undefined) return;
-            object.visible = visible;
-        },
-        set_object_visible(object, visible) {
-            object.visible = visible;
-        },
-        set_object_emissive(object, color, intensity = 5.0) {
-            if (object.type == 'Group') {
-                for (let i = 0; i < object.children.length; ++i) {
-                    const child = object.children[i];
-                    if (child.type == 'Group') {
-                        this.set_object_emissive(child, color);
-                    } else if (child.type == 'Mesh') {
-                        child.material.emissive.set(color);
-                        child.material.emissiveIntensity = intensity;
-                    }
-                }
-            } else if (object.type == 'Mesh') {
-                object.material.emissive.set(color);
-                object.material.emissiveIntensity = intensity;
+        select_object_list(objects, color) {
+            for (let i = 0; i < objects.length; ++i) {
+                const object = objects[i];
+                this.select_object(object, color);
             }
         },
         select_object(object, color) {
@@ -388,6 +369,12 @@ export default {
                     object.material_origin = object.material;
                     object.material = new THREE.PointsMaterial({color: color, size: 4.0});
                 }
+            }
+        },
+        unselect_object_list(objects) {
+            for (let i = 0; i < objects.length; ++i) {
+                const object = objects[i];
+                this.unselect_object(object);
             }
         },
         unselect_object(object) {
@@ -421,7 +408,6 @@ export default {
             const posOld = camera.position.clone();
             const targetOld = this.orbitCtrl.target.clone();
 
-            // const targetNew = object.position.clone().applyMatrix4(object.matrixWorld);
             const targetNew = new THREE.Vector3().setFromMatrixPosition(object.matrixWorld);
             const posNew = targetNew.clone().add(new THREE.Vector3(0, 0, 100));
 
@@ -440,7 +426,7 @@ export default {
                 .start()
         },
         /**
-         * 闪烁物体
+         * 闪烁/取消闪烁物体
          */
         set_object_twinkle(object, color) {
             if (object.type =='Group') {
@@ -486,98 +472,155 @@ export default {
                 }
             }
         },
+        /**
+         * 闪烁物体
+         */
         twinkle_object(object) {
-            if (this.twinkle_tween == undefined) {
-                this.twinkle_tween = setInterval(() => {
-                    this.set_object_twinkle(object, 0xff0000);
-                }, 500)
-            } else {
-                clearInterval(this.twinkle_tween);
-                this.set_object_twinkle(object, undefined);
-                this.twinkle_tween = undefined;
+            const name = object.name;
+            let index = this.scene_data.twinkles.findIndex((item) => {
+                return item.name == name;
+            });
+            if (index != -1) {
+                return; // 已经存在闪烁
             }
+            // 添加新的闪烁
+            const twinkle = setInterval(() => {
+                this.set_object_twinkle(object, 0xff0000);
+            }, 500);
+            this.scene_data.twinkles.push({
+                name: name,
+                tween: twinkle
+            });
+        },
+        /**
+         * 取消闪烁物体
+         */
+        untwinkle_object(object) {
+            const name = object.name;
+            let index = this.scene_data.twinkles.findIndex((item) => {
+                return item.name == name;
+            });
+            if (index == -1) {
+                return; // 不存在闪烁
+            }
+            const twinkle_item = this.scene_data.twinkles.splice(index, 1)[0];
+            clearInterval(twinkle_item.tween);
+            this.set_object_twinkle(object, undefined);
         },
         /**
          * 涟漪效果
          */
         ripple_object(object) {
-            if (this.ripple_tween == undefined) {
-                // const worldPosition = object.position.clone().applyMatrix4(object.matrixWorld);
-                const worldPosition = new THREE.Vector3().setFromMatrixPosition(object.matrixWorld);
-                // console.log('ripple_object position:', worldPosition);
-                if (this.rippleInner == undefined) {
-                    this.rippleInner = new THREE.Mesh(
-                        new THREE.SphereGeometry(3, 32, 16),
-                        new THREE.MeshPhongMaterial({color: new THREE.Color(255,0,0), opacity:1, transparent: true})
-                    );
-                    this.rippleInner.position.copy(worldPosition);
-                    this.rippleInner.renderOrder = 1;
-                    scene.add(this.rippleInner);
-                } else {
-                    scene.add(this.rippleInner);
-                }
-                if (this.rippleOuter == undefined) {
-                    this.rippleOuter = new THREE.Mesh(
-                        new THREE.SphereGeometry(0.1, 32, 16),
-                        new THREE.MeshPhongMaterial({color: new THREE.Color(255,0,0),opacity:1, transparent: true})
-                    );
-                    this.rippleOuter.position.copy(worldPosition);
-                    this.rippleOuter.renderOrder = 1;
-                    scene.add(this.rippleOuter);
-                } else {
-                    scene.add(this.rippleOuter);
-                }
-                this.ripple_tween = new TWEEN.Tween({radius: 0, opacity: 0.8})
-                    .to({radius: 100, opacity: 0}, 1000)
-                    .easing(TWEEN.Easing.Linear.None)
-                    .onUpdate((e) => {
-                        const {radius, opacity} = e;
-                        this.rippleOuter.material.opacity = opacity;
-                        this.rippleOuter.geometry = new THREE.SphereGeometry(radius, 32, 16);
-                    })
-                    .repeat(Infinity)
-                    .start();
-            } else {
-                scene.remove(this.rippleInner);
-                scene.remove(this.rippleOuter);
-                this.ripple_tween.stop();
-                this.ripple_tween = undefined;
+            const name = object.name;
+            const index = this.scene_data.ripples.findIndex((item) => {
+                return item.name == name;
+            });
+            if (index != -1) {
+                return;
+            }
+            const worldPosition = new THREE.Vector3().setFromMatrixPosition(object.matrixWorld);
+            const rippleInner = new THREE.Mesh(
+                new THREE.SphereGeometry(3, 32, 16),
+                new THREE.MeshPhongMaterial({color: new THREE.Color(255,0,0), opacity:1, transparent: true})
+            );
+            rippleInner.position.copy(worldPosition);
+            rippleInner.renderOrder = 1;
+            scene.add(rippleInner);
+            const rippleOuter = new THREE.Mesh(
+                new THREE.SphereGeometry(0.1, 32, 16),
+                new THREE.MeshPhongMaterial({color: new THREE.Color(255,0,0),opacity:1, transparent: true})
+            );
+            rippleOuter.position.copy(worldPosition);
+            rippleOuter.renderOrder = 1;
+            scene.add(rippleOuter);
+
+            const ripple_tween = new TWEEN.Tween({radius: 0, opacity: 0.8})
+                .to({radius: 100, opacity: 0}, 1000)
+                .easing(TWEEN.Easing.Linear.None)
+                .onUpdate((e) => {
+                    const {radius, opacity} = e;
+                    rippleOuter.material.opacity = opacity;
+                    rippleOuter.geometry = new THREE.SphereGeometry(radius, 32, 16);
+                })
+                .repeat(Infinity)
+                .start();
+            this.scene_data.ripples.push({
+                name: name,
+                inner: rippleInner,
+                outer: rippleOuter,
+                tween: ripple_tween
+            });
+        },
+        /**
+         * 取消涟漪效果
+         */
+        unripple_object(object) {
+            const name = object.name;
+            const index = this.scene_data.ripples.findIndex((item) => {
+                return item.name == name;
+            });
+            if (index == -1) {
+                return;
+            }
+            const ripple_item = this.scene_data.ripples.splice(index, 1)[0];
+            ripple_item.tween.stop();
+            ripple_item.tween = undefined;
+            scene.remove(ripple_item.inner);
+            scene.remove(ripple_item.outer);
+        },
+        show_ripple_sphere_list(list) {
+            for (let i = 0; i < list.length; ++i) {
+                const ripple_item = list[i];
+                ripple_item.inner.visible = true;
+                ripple_item.outer.visible = true;
+            }
+        },
+        hide_ripple_sphere_list(list) {
+            for (let i = 0; i < list.length; ++i) {
+                const ripple_item = list[i];
+                ripple_item.inner.visible = false;
+                ripple_item.outer.visible = false;
             }
         },
         /**
          * 蚂蚁线效果
          */
-        get_relation_object_by_name(name) {
-            let objects = [];
-            for (let i = 0; i < this.relation_link_names.length; ++i) {
-                const link_name = this.relation_link_names[i];
+        get_relation_link_by_name(name) {
+            let links = [];
+            for (let i = 0; i < this.scene_data.link_items.length; ++i) {
+                const link_item = this.scene_data.link_items[i];
+                const link_name = link_item.name;
                 const names = link_name.split('_');
                 if (names.includes(name)) {
-                    const object = scene.getObjectByName(link_name);
-                    if (object) {
-                        objects.push(object);
+                    links.push(link_item);
+                }
+            }
+            return links;
+        },
+        get_relation_object_by_name(name) {
+            let objects = [];
+            for (let i = 0; i < this.scene_data.link_items.length; ++i) {
+                const link_item = this.scene_data.link_items[i];
+                const link_name = link_item.name;
+                const names = link_name.split('_');
+                if (names.includes(name)) {
+                    for (let j = 0; j < names.length; ++j) {
+                        const temp_name = names[j];
+                        if (temp_name == name) {
+                            continue;
+                        }
+                        if (temp_name.indexOf('报警节点') != -1) {
+                            // 过滤掉报警节点
+                            continue;
+                        }
+                        const object = scene.getObjectByName(temp_name);
+                        if (object) {
+                            objects.push(object);
+                        }
                     }
                 }
             }
             return objects;
-        },
-        show_relation_object_by_name(name) {
-            if (name == undefined || name.length == 0) {
-                for (let i = 0; i < this.relation_link_names.length; ++i) {
-                    const link_name = this.relation_link_names[i];
-                    this.set_object_visible_by_name(link_name, true);
-                }
-            } else {
-                for (let i = 0; i < this.relation_link_names.length; ++i) {
-                    const link_name = this.relation_link_names[i];
-                    const names = link_name.split('_');
-                    if (names.includes(name)) {
-                        this.set_object_visible_by_name(link_name, true);
-                    } else {
-                        this.set_object_opacity_by_name(link_name, false);
-                    }
-                }
-            }
         },
         relation_object_by_name(name1, name2) {
             const object1 = scene.getObjectByName(name1);
@@ -586,15 +629,23 @@ export default {
             if (object2 == undefined) return;
             this.relation_object(object1, object2);
         },
+        unrelation_object_by_name() {
+            const object1 = scene.getObjectByName(name1);
+            if (object1 == undefined) return;
+            const object2 = scene.getObjectByName(name2);
+            if (object2 == undefined) return;
+            this.unrelation_object(object1, object2);
+        },
         relation_object(object1, object2) {
             const link_name = object1.name + '_' + object2.name;
-            const link_object = this.getObjectByName(link_name); 
-            if (link_object) {
+            const index = this.scene_data.link_items.findIndex((item) => {
+                return item.name == link_name;
+            });
+            if (index != -1) {
                 return;
             }
             const position1 = new THREE.Vector3().setFromMatrixPosition(object1.matrixWorld);
             const position2 = new THREE.Vector3().setFromMatrixPosition(object2.matrixWorld);
-            // console.log('relation_object position1:', position1, ', position2:', position2);
             const insert = new THREE.Vector3();
             const vertices = [];
             const orders = [];
@@ -603,100 +654,164 @@ export default {
                 vertices.push(insert.x, insert.y, insert.z);
                 orders.push(i);
             }
-            const geometry = new THREE.BufferGeometry();
-            geometry.setAttribute( 'position', new THREE.Float32BufferAttribute( vertices, 3 ) );
-            geometry.setAttribute( 'order', new THREE.Float32BufferAttribute( orders, 1 ) );
+            const geometryInner = new THREE.BufferGeometry();
+            geometryInner.setAttribute( 'position', new THREE.Float32BufferAttribute( vertices, 3 ) );
+            geometryInner.setAttribute( 'order', new THREE.Float32BufferAttribute( orders, 1 ) );
 
-            const shaderMaterial = new THREE.ShaderMaterial({
-                uniforms: this.relations,
-                vertexShader: RelationLineVert,
-                fragmentShader: RelationLineFlag
+            const materialInner = new THREE.ShaderMaterial({
+                uniforms: this.relation_uniforms,
+                vertexShader: RelationLineVert2,
+                fragmentShader: RelationLineFlag2
             })
-            const mesh = new THREE.Points( geometry, shaderMaterial );
-            mesh.name = link_name;
-            this.relation_link_names.push(link_name);
-            scene.add( mesh );
+            const inner = new THREE.Line(geometryInner, materialInner);
+            scene.add(inner);
+
+            const length = position1.distanceTo(position2);
+            const geometryOuter = new THREE.CylinderGeometry( 3, 3, length, 24 );
+            const materialOuter = new THREE.MeshBasicMaterial( {color: viewer3d_sittings.link_color, opacity: 0.3, transparent: true} );
+            const outer = new THREE.Mesh( geometryOuter, materialOuter );
+            const center = new THREE.Vector3().addVectors(position1, position2).multiplyScalar(0.5);
+            const matrix = new THREE.Matrix4().lookAt(position2, position1, THREE.Object3D.DefaultUp);
+            outer.position.copy(center);
+            outer.quaternion.setFromAxisAngle(new THREE.Vector3(1, 0, 0), Math.PI / 2);
+            const quaternion_new = new THREE.Quaternion().setFromRotationMatrix(matrix);
+            outer.quaternion.premultiply(quaternion_new);
+            // outer.scale.setScalar(length);
+            outer.updateMatrix();
+            scene.add(outer);
+
+            this.scene_data.link_items.push({
+                name: link_name,
+                inner: inner,
+                outer: outer
+            })
+            
+            // const position1 = new THREE.Vector3().setFromMatrixPosition(object1.matrixWorld);
+            // const position2 = new THREE.Vector3().setFromMatrixPosition(object2.matrixWorld);
+            // const insert = new THREE.Vector3();
+            // const vertices = [];
+            // const orders = [];
+            // for (let i = 0; i < 100; ++i) {
+            //     insert.lerpVectors(position1, position2, i / 100);
+            //     vertices.push(insert.x, insert.y, insert.z);
+            //     orders.push(i);
+            // }
+            // const geometry = new THREE.BufferGeometry();
+            // geometry.setAttribute( 'position', new THREE.Float32BufferAttribute( vertices, 3 ) );
+            // geometry.setAttribute( 'order', new THREE.Float32BufferAttribute( orders, 1 ) );
+
+            // const shaderMaterial = new THREE.ShaderMaterial({
+            //     uniforms: this.relations,
+            //     vertexShader: RelationLineVert,
+            //     fragmentShader: RelationLineFlag
+            // })
+            // const mesh = new THREE.Points( geometry, shaderMaterial );
+            // mesh.name = link_name;
+            // this.relation_link_names.push(link_name);
+            // scene.add( mesh );
         },
-        remove_relation_object(object1, object2) {
+        unrelation_object(object1, object2) {
             const link_name = object1.name + '_' + object2.name;
-            const link_object = this.getObjectByName(link_name);
-            if (link_object) {
-                scene.remove(link_object);
-                const index = this.relation_link_names.findIndex((item) => {
-                    return item == link_name;
-                });
-                if (index != -1) {
-                    this.relation_link_names.splice(index, 1);
-                }
+            const index = this.scene_data.link_items.findIndex((item) => {
+                return item.name == link_name;
+            });
+            if (index != -1) {
+                return;
+            }
+            const link_item = this.scene_data.link_items.splice(index, 1)[0];
+            scene.remove(link_item.inner);
+            scene.remove(link_item.outer);
+        },
+        show_relation_object_by_type(type) {
+            
+        },
+        select_link_list(list, color) {
+            for (let i = 0; i < list.length; ++i) {
+                const link_item = list[i];
+                link_item.outer.material.color.set(color);
             }
         },
-        coordinateToScreen(position) {
-            const positionCopy = position.clone();
-            const screen = positionCopy.project(camera);
-            const a = window.innerWidth / 2;
-            const b = window.innerHeight / 2;
-            let outPos = new THREE.Vector3(0,0,0);
-            outPos.x = Math.round(screen.x * a + a);
-            outPos.y = Math.round(screen.y * b + b);
-            return outPos;
+        unselect_link_list(list) {
+            for (let i = 0; i < list.length; ++i) {
+                const link_item = list[i];
+                link_item.outer.material.color.set(viewer3d_sittings.link_color);
+            }
         },
         // 设置物体的维修状态
-        set_object_state_repair_by_name(name, need_repair) {
+        repair_object_by_name(name) {
             const object = scene.getObjectByName(name);
             if (object == undefined) {
                 return;
             }
-            if (need_repair) {
-                // 物体颜色
-                this.select_object(object, viewer3d_sittings.repair_color);
-                // 连线颜色
-                const links = this.get_relation_object_by_name(name);
-                for (let i = 0; i < links.length; ++i) {
-                    const link_item = links[i];
-                    this.select_object(link_item, viewer3d_sittings.repair_color);
-                }
-                // 添加sprite
-                this.add_object_sprite(object);
-            } else {
-                // 物体颜色
-                this.unselect_object(object);
-                // 连线颜色
-                const links = this.get_relation_object_by_name(name);
-                for (let i = 0; i < links.length; ++i) {
-                    const link_item = links[i];
-                    this.unselect_object(link_item);
-                }
-                // 删除sprite
-                this.remove_object_sprite(object);
+            this.repair_object(object);
+        },
+        repair_object(object) {
+            const name = object.name;
+            const index = this.scene_data.repairs.findIndex((item) => {
+                return item.name == name;
+            });
+            if (index != -1) {
+                return;
+            }
+            this.select_object(object, viewer3d_sittings.repair_color);
+            const sprite = this.add_object_sprite(object);
+            const links = this.get_relation_link_by_name(name);
+            console.log('links:', links);
+            this.select_link_list(links, viewer3d_sittings.repair_color);
+            this.scene_data.repairs.push({
+                name: name,
+                sprite: sprite
+            });
+        },
+        show_repair_sprite_list(list) {
+            for (let i = 0; i < list.length; ++i) {
+                const repair_item = list[i];
+                repair_item.sprite.visible = true;
             }
         },
+        hide_repair_sprite_list(list) {
+            for (let i = 0; i < list.length; ++i) {
+                const repair_item = list[i];
+                repair_item.sprite.visible = false;
+            }
+        },
+        unrepair_object_by_name(name) {
+            const object = scene.getObjectByName(name);
+            if (object == undefined) {
+                return;
+            }
+            this.unrepair_object(object);
+        },
+        unrepair_object(object) {
+            const name = object.name;
+            const index = this.scene_data.repairs.findIndex((item) => {
+                return item.name == name;
+            });
+            if (index == -1) {
+                return;
+            }
+            this.unselect_object(object);
+            const links = this.get_relation_link_by_name(name);
+            this.unselect_link_list(links);
+            const repair_item = this.scene_data.repairs.splice(index, 1)[0];
+            scene.remove(repair_item.sprite);
+        },
+        /**
+         * 添加sprite
+         */
         add_object_sprite(object) {
-            const sprite_name = object.name + '_repair';
-            const sprite = scene.getObjectByName(sprite_name);
-            // 添加维修状态
-            if (sprite) {
-                // 已经存在
-                sprite.visible = true;
-            } else {
-                const position = new THREE.Vector3().setFromMatrixPosition(object.matrixWorld);
-                console.log('sprite position:', position);
-                position.y += 25;
-                const map = new THREE.TextureLoader().load('/static/icon/repair.png');
-                const material = new THREE.SpriteMaterial({map: map});
-                const sprite = new THREE.Sprite( material );
-                sprite.position.copy(position);
-                sprite.scale.setScalar(10);
-                sprite.name = object.name + '_repair';
-                scene.add(sprite);
-            }
+            const position = new THREE.Vector3().setFromMatrixPosition(object.matrixWorld);
+            // console.log('sprite position:', position);
+            position.y += 25;
+            const map = new THREE.TextureLoader().load('/static/icon/repair.png');
+            const material = new THREE.SpriteMaterial({map: map});
+            const sprite = new THREE.Sprite( material );
+            sprite.position.copy(position);
+            sprite.scale.setScalar(10);
+            sprite.name = object.name + '_repair';
+            scene.add(sprite);
+            return sprite;
         },
-        remove_object_sprite(object) {
-            const sprite_name = object.name + '_repair';
-            const sprite = scene.getObjectByName(sprite_name);
-            if (sprite) {
-                sprite.visible = false;
-            }
-        }
     }
 }
 </script>
