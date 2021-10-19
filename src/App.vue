@@ -12,6 +12,13 @@
             <div class="btn-item" @click="test_function8">取消物体损坏状态</div>
             <div class="btn-item" @click="test_function9">添加选中事件</div>
             <div class="btn-item" @click="test_function10">移除选中事件</div>
+            <div class="btn-item" @click="test_function11('特高频局放')">只显示特高频局放</div>
+            <div class="btn-item" @click="test_function11('高频局放')">只显示高频局放</div>
+            <div class="btn-item" @click="test_function11('超声局放')">只显示超声局放</div>
+            <div class="btn-item" @click="test_function11('接地电流')">只显示接地电流</div>
+            <div class="btn-item" @click="test_function11('温度')">只显示温度</div>
+            <div class="btn-item" @click="test_function11('振动')">只显示振动</div>
+            <div class="btn-item" @click="test_function12">展示全部蚂蚁线</div>
             
         </div>
         <Viewer3d ref="viewer3d" @object-select="handleSelectObject"></Viewer3d>
@@ -86,6 +93,12 @@ export default {
         test_function10() {
             this.$refs.viewer3d.canSelected = false;
         },
+        test_function11(type) {
+            this.$refs.viewer3d.show_relation_link_by_type(type);
+        },
+        test_function12() {
+            this.$refs.viewer3d.reset_relation_object();
+        },
     }
 }
 </script>
@@ -106,7 +119,7 @@ html, body {
 }
 .left-wrap {
     position: absolute;
-    top: 100px;
+    top: 70px;
     left: 10px;
     z-index: 10;
 

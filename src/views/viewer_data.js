@@ -4,7 +4,7 @@ const byq_relation_trees = [
         children: [
             {
                 name: '特高频局放IPT节点A',
-                type: '特高频局',
+                type: '特高频局放',
                 children: [
                     {name: '特高频局放传感器1'},
                     {name: '特高频局放传感器2'},
@@ -12,7 +12,7 @@ const byq_relation_trees = [
             },
             {
                 name: '特高频局放IPT节点B',
-                type: '特高频局',
+                type: '特高频局放',
                 children: [
                     {name: '特高频局放传感器3'},
                     {name: '特高频局放传感器4'},
@@ -91,7 +91,7 @@ const byq_relation_trees = [
         children: [
             {
                 name: '特高频局放IPT节点C',
-                type: '特高频局',
+                type: '特高频局放',
                 children: [
                     {name: '特高频局放传感器5'},
                     {name: '特高频局放传感器6'},
@@ -99,7 +99,7 @@ const byq_relation_trees = [
             },
             {
                 name: '特高频局放IPT节点D',
-                type: '特高频局',
+                type: '特高频局放',
                 children: [
                     {name: '特高频局放传感器7'},
                 ]

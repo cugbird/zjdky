@@ -12,13 +12,13 @@ import { FBXLoader } from '@/three/examples/jsm/loaders/FBXLoader.js';
 // 动画需要
 const TWEEN = require('@tweenjs/tween.js');
 // 蚂蚁线shader
-import RelationLineVert  from '@/shaders/relationLineVert.glsl.js';
-import RelationLineFlag from '@/shaders/relationLineFlag.glsl.js';
+// import RelationLineVert  from '@/shaders/relationLineVert.glsl.js';
+// import RelationLineFlag from '@/shaders/relationLineFlag.glsl.js';
 import RelationLineVert2  from '@/shaders/relationLineVert2.glsl.js';
 import RelationLineFlag2 from '@/shaders/relationLineFlag2.glsl.js';
 
 import {byq_relation_trees, byq_select_items, gis_relation_trees, gis_select_items} from './viewer_data';
-import {viewer3d_sittings} from './viewer_setting';
+import {settings3D} from './viewer_setting';
 
 // threejs全局变量，不放在data中，有利于渲染速度
 let scene = undefined;
@@ -32,7 +32,6 @@ export default {
     data() {
         return {
             mode: '',  // byq or gis
-            models: {}, // byq + gis model
             scene_datas: {
                 'byq': {
                     model: undefined, // 模型
@@ -58,6 +57,8 @@ export default {
                 }
             },
             scene_data: undefined,
+
+            scene_types: ['特高频局放', '高频局放', '超声局放', '接地电流', '温度', '振动'],
 
             // 蚂蚁线
             relation_uniforms: {
@@ -198,6 +199,11 @@ export default {
             this.load_relation_links();
             this.show_ripple_sphere_list(this.scene_data.ripples);
             this.show_repair_sprite_list(this.scene_data.repairs);
+            if (new_mode == 'byq') {
+                this.fly_to_position(new THREE.Vector3(0, 600, 600), new THREE.Vector3(0,0,0), 1000);
+            } else if (new_mode == 'gis') {
+                this.fly_to_position(new THREE.Vector3(-100, 600, -600), new THREE.Vector3(0,0,0), 1000);
+            }
         },
         load_relation_links() {
             if (this.scene_data.link_items.length == 0) {
@@ -205,10 +211,10 @@ export default {
                     const item_level_1 = this.scene_data.relation_trees[i];
                     for (let j = 0; j < item_level_1.children.length; ++j) {
                         const item_level_2 = item_level_1.children[j];
-                        this.relation_object_by_name(item_level_2.name, item_level_1.name);
+                        this.relation_object_by_name(item_level_2.name, item_level_1.name, item_level_2.type);
                         for (let k = 0; k < item_level_2.children.length; ++k) {
                             const item_level_3 = item_level_2.children[k];
-                            this.relation_object_by_name(item_level_3.name, item_level_2.name);
+                            this.relation_object_by_name(item_level_3.name, item_level_2.name, item_level_2.type);
                         }
                     }
                 }
@@ -269,9 +275,9 @@ export default {
                     // 高亮蚂蚁线
                     this.scene_data.select_links = this.get_relation_link_by_name(target.name);
                     // console.log('highlight_links:', this.scene_data.select_links);
-                    this.select_link_list(this.scene_data.select_links, viewer3d_sittings.link_select);
+                    this.select_link_list(this.scene_data.select_links, settings3D.link_select);
                     // 选中了物体
-                    // this.select_object(target, viewer3d_sittings.select_color);
+                    // this.select_object(target, settings3D.select_color);
                     this.scene_data.select_objects.push(target);
                     // 如果选中的是ipt节点，高亮对应的传感器
                     const sensor_items = this.get_relation_object_by_name(target.name);
@@ -279,7 +285,7 @@ export default {
                     // if (target.name.indexOf('IPT') != -1) {
                         
                     // }
-                    this.select_object_list(this.scene_data.select_objects, viewer3d_sittings.select_color);
+                    this.select_object_list(this.scene_data.select_objects, settings3D.select_color);
                 }
             } else {
                 console.log('no intersects');
@@ -309,7 +315,7 @@ export default {
 
             // uniform
             if (this.need_relation) {
-                let newTime = this.relation_uniforms.time.value + 0.2;
+                let newTime = this.relation_uniforms.time.value + settings3D.link_speed;
                 if (newTime > 5.0) {newTime = 0;}
                 this.relation_uniforms.time.value = newTime;
             }
@@ -405,15 +411,18 @@ export default {
          * 飞行动画
          */
         fly_to_object(object) {
-            const posOld = camera.position.clone();
-            const targetOld = this.orbitCtrl.target.clone();
-
             const targetNew = new THREE.Vector3().setFromMatrixPosition(object.matrixWorld);
             const posNew = targetNew.clone().add(new THREE.Vector3(0, 0, 100));
 
+            this.fly_to_position(posNew, targetNew);
+        },
+        fly_to_position(posNew, targetNew, mini_seconds = 2000) {
+            const posOld = camera.position.clone();
+            const targetOld = this.orbitCtrl.target.clone();
+
             this.orbitCtrl.enable = false;
             const tween = new TWEEN.Tween({pos: posOld, target: targetOld})
-                .to({pos: posNew, target: targetNew}, 2000)
+                .to({pos: posNew, target: targetNew}, mini_seconds)
                 .easing(TWEEN.Easing.Linear.None)
                 .onUpdate((e) => {
                     camera.position.copy(e.pos);
@@ -622,12 +631,12 @@ export default {
             }
             return objects;
         },
-        relation_object_by_name(name1, name2) {
+        relation_object_by_name(name1, name2, type) {
             const object1 = scene.getObjectByName(name1);
             if (object1 == undefined) return;
             const object2 = scene.getObjectByName(name2);
             if (object2 == undefined) return;
-            this.relation_object(object1, object2);
+            this.relation_object(object1, object2, type);
         },
         unrelation_object_by_name() {
             const object1 = scene.getObjectByName(name1);
@@ -636,7 +645,7 @@ export default {
             if (object2 == undefined) return;
             this.unrelation_object(object1, object2);
         },
-        relation_object(object1, object2) {
+        relation_object(object1, object2, type) {
             const link_name = object1.name + '_' + object2.name;
             const index = this.scene_data.link_items.findIndex((item) => {
                 return item.name == link_name;
@@ -667,8 +676,12 @@ export default {
             scene.add(inner);
 
             const length = position1.distanceTo(position2);
-            const geometryOuter = new THREE.CylinderGeometry( 3, 3, length, 24 );
-            const materialOuter = new THREE.MeshBasicMaterial( {color: viewer3d_sittings.link_color, opacity: 0.3, transparent: true} );
+            const geometryOuter = new THREE.CylinderGeometry( settings3D.link_width, settings3D.link_width, length, 24 );
+            const materialOuter = new THREE.MeshBasicMaterial({
+                color: settings3D.link_color,
+                opacity: settings3D.link_opacity,
+                transparent: true
+            });
             const outer = new THREE.Mesh( geometryOuter, materialOuter );
             const center = new THREE.Vector3().addVectors(position1, position2).multiplyScalar(0.5);
             const matrix = new THREE.Matrix4().lookAt(position2, position1, THREE.Object3D.DefaultUp);
@@ -676,12 +689,12 @@ export default {
             outer.quaternion.setFromAxisAngle(new THREE.Vector3(1, 0, 0), Math.PI / 2);
             const quaternion_new = new THREE.Quaternion().setFromRotationMatrix(matrix);
             outer.quaternion.premultiply(quaternion_new);
-            // outer.scale.setScalar(length);
             outer.updateMatrix();
             scene.add(outer);
 
             this.scene_data.link_items.push({
                 name: link_name,
+                type: type,
                 inner: inner,
                 outer: outer
             })
@@ -722,8 +735,52 @@ export default {
             scene.remove(link_item.inner);
             scene.remove(link_item.outer);
         },
-        show_relation_object_by_type(type) {
-            
+        show_relation_link_by_type(type) {
+            if (!this.scene_types.includes(type)) {
+                console.error('type is not valid:', type);
+                return;
+            }
+            if (this.mode == 'gis') {
+                return;
+            }
+            // console.log('show_relation_link_by_type:', type);
+            for (let i = 0; i < this.scene_data.link_items.length; ++i) {
+                const link_item = this.scene_data.link_items[i];
+                if (link_item.type == type) {
+                    // console.log('show type:', link_item.type);
+                    link_item.inner.visible = true;
+                    link_item.outer.visible = true;
+                } else {
+                    // console.log('hide type:', link_item.type);
+                    link_item.inner.visible = false;
+                    link_item.outer.visible = false;
+                }
+            }
+            // '特高频局放', '高频局放', '超声局放', '接地电流', '温度', '振动'
+            if (type == '特高频局放') {
+                this.fly_to_position(new THREE.Vector3(600, 600, 0), new THREE.Vector3(0, 0, 0));
+            } else if (type == '高频局放') {
+                this.fly_to_position(new THREE.Vector3(600, 600, 600), new THREE.Vector3(0, 0, 0));
+            } else if (type == '超声局放') {
+                this.fly_to_position(new THREE.Vector3(0, 600, 600), new THREE.Vector3(0, 0, 0));
+            } else if ('接地电流' == type) {
+                this.fly_to_position(new THREE.Vector3(600, 600, -500), new THREE.Vector3(0, 0, 0));
+            } else if ('温度' == type) {
+                this.fly_to_position(new THREE.Vector3(-500, 600, 600), new THREE.Vector3(0, 0, 0));
+            } else if ('振动' == type) {
+                this.fly_to_position(new THREE.Vector3(-600, 600, 0), new THREE.Vector3(0, 0, 0));
+            }
+        },
+        reset_relation_object() {
+            if (this.mode == 'gis') {
+                return;
+            }
+            for (let i = 0; i < this.scene_data.link_items.length; ++i) {
+                const link_item = this.scene_data.link_items[i];
+                link_item.inner.visible = true;
+                link_item.outer.visible = true;
+            }
+            this.fly_to_position(new THREE.Vector3(0, 600, 600), new THREE.Vector3(0, 0, 0));
         },
         select_link_list(list, color) {
             for (let i = 0; i < list.length; ++i) {
@@ -734,7 +791,7 @@ export default {
         unselect_link_list(list) {
             for (let i = 0; i < list.length; ++i) {
                 const link_item = list[i];
-                link_item.outer.material.color.set(viewer3d_sittings.link_color);
+                link_item.outer.material.color.set(settings3D.link_color);
             }
         },
         // 设置物体的维修状态
@@ -753,11 +810,11 @@ export default {
             if (index != -1) {
                 return;
             }
-            this.select_object(object, viewer3d_sittings.repair_color);
+            this.select_object(object, settings3D.repair_color);
             const sprite = this.add_object_sprite(object);
             const links = this.get_relation_link_by_name(name);
             console.log('links:', links);
-            this.select_link_list(links, viewer3d_sittings.repair_color);
+            this.select_link_list(links, settings3D.repair_color);
             this.scene_data.repairs.push({
                 name: name,
                 sprite: sprite
