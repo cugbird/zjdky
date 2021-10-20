@@ -6,7 +6,7 @@
 
 <script>
 import * as THREE from '@/three/build/three.module.js';
-import Stats from '@/three/examples/jsm/libs/stats.module.js';
+// import Stats from '@/three/examples/jsm/libs/stats.module.js';
 import { OrbitControls } from '@/three/examples/jsm/controls/OrbitControls.js';
 import { FBXLoader } from '@/three/examples/jsm/loaders/FBXLoader.js';
 // 动画需要
@@ -17,14 +17,14 @@ const TWEEN = require('@tweenjs/tween.js');
 import RelationLineVert2  from '@/shaders/relationLineVert2.glsl.js';
 import RelationLineFlag2 from '@/shaders/relationLineFlag2.glsl.js';
 
-import {byq_relation_trees, byq_select_items, gis_relation_trees, gis_select_items} from './viewer_data';
+import {byq_relation_trees,byq_select_items,gis_relation_trees,gis_select_items,byq_name_code_list,gis_name_code_list} from './viewer_data';
 import {settings3D} from './viewer_setting';
 
 // threejs全局变量，不放在data中，有利于渲染速度
 let scene = undefined;
 let camera = undefined;
 let renderer = undefined;
-let stats = undefined;
+// let stats = undefined;
 // 射线选择器
 let raycaster = undefined;
 
@@ -100,12 +100,12 @@ export default {
         init3D() {
             const rect = this.get_render_rect();
             camera = new THREE.PerspectiveCamera( 50, rect.width / rect.height, 0.01, 1000000 );
-            camera.position.set( 0, 600, 600 );
+            camera.position.set(0, 600, settings3D.camera_distance);
             camera.lookAt(new THREE.Vector3(0, 0, 0));
 
             scene = new THREE.Scene();
             // 天空盒子
-            const path = "/static/img/cube2/dark-s_";
+            const path = "/static/img/cube3/dark-s_";
             const format = '.png';
             const urls = [
                 path + 'px' + format,path + 'nx' + format,
@@ -136,12 +136,15 @@ export default {
             // 控制器
             this.orbitCtrl = new OrbitControls(camera, renderer.domElement);
             this.orbitCtrl.target.set(0, 0, 0);
+            this.orbitCtrl.maxDistance = 2000;
+            this.orbitCtrl.maxPolarAngle = Math.PI * 3/ 7;
+            this.orbitCtrl.enablePan = false;
             this.orbitCtrl.update();
 
             window.addEventListener('resize', this.on_window_resize, false);
             // stats
-            stats = new Stats();
-            this.$refs.viewerRef.appendChild( stats.dom );
+            // stats = new Stats();
+            // this.$refs.viewerRef.appendChild( stats.dom );
             // 监听事件
             raycaster = new THREE.Raycaster();
             // 进入渲染循环
@@ -163,12 +166,12 @@ export default {
                 if (name == 'byq') {
                     const body = object.getObjectByName('变压器');
                     if (body) {
-                        this.set_object_opacity(body, 0.3);
+                        this.set_object_opacity(body, settings3D.body_opacity);
                     }
                 } else if (name == 'gis') {
                     const body = object.getObjectByName('GIS设备');
                     if (body) {
-                        this.set_object_opacity(body, 0.3);
+                        this.set_object_opacity(body, settings3D.body_opacity);
                     }
                 }
                 this.scene_datas[name].model = object;
@@ -200,9 +203,9 @@ export default {
             this.show_ripple_sphere_list(this.scene_data.ripples);
             this.show_repair_sprite_list(this.scene_data.repairs);
             if (new_mode == 'byq') {
-                this.fly_to_position(new THREE.Vector3(0, 600, 600), new THREE.Vector3(0,0,0), 1000);
+                this.fly_to_position(new THREE.Vector3(0, 600, settings3D.camera_distance), new THREE.Vector3(0,0,0), 1000);
             } else if (new_mode == 'gis') {
-                this.fly_to_position(new THREE.Vector3(-100, 600, -600), new THREE.Vector3(0,0,0), 1000);
+                this.fly_to_position(new THREE.Vector3(-100, 600, -settings3D.camera_distance), new THREE.Vector3(0,0,0), 1000);
             }
         },
         load_relation_links() {
@@ -211,10 +214,10 @@ export default {
                     const item_level_1 = this.scene_data.relation_trees[i];
                     for (let j = 0; j < item_level_1.children.length; ++j) {
                         const item_level_2 = item_level_1.children[j];
-                        this.relation_object_by_name(item_level_2.name, item_level_1.name, item_level_2.type);
+                        this.relation_object_by_name(item_level_2.name, item_level_1.name, item_level_2.type, true);
                         for (let k = 0; k < item_level_2.children.length; ++k) {
                             const item_level_3 = item_level_2.children[k];
-                            this.relation_object_by_name(item_level_3.name, item_level_2.name, item_level_2.type);
+                            this.relation_object_by_name(item_level_3.name, item_level_2.name, item_level_2.type, false);
                         }
                     }
                 }
@@ -269,22 +272,19 @@ export default {
                 }
                 console.log('intersects:', target);
                 if (target) {
-
                     // 释放选中事件
-                    this.$emit('object-select', target.name);
+                    const target_code = this.get_model_code_by_name(target.name);
+                    this.$emit('object-select', {name: target.name, code: target_code});
                     // 高亮蚂蚁线
                     this.scene_data.select_links = this.get_relation_link_by_name(target.name);
                     // console.log('highlight_links:', this.scene_data.select_links);
-                    this.select_link_list(this.scene_data.select_links, settings3D.link_select);
+                    this.select_link_list(this.scene_data.select_links, undefined);
                     // 选中了物体
                     // this.select_object(target, settings3D.select_color);
                     this.scene_data.select_objects.push(target);
                     // 如果选中的是ipt节点，高亮对应的传感器
                     const sensor_items = this.get_relation_object_by_name(target.name);
                     this.scene_data.select_objects.push(...sensor_items);
-                    // if (target.name.indexOf('IPT') != -1) {
-                        
-                    // }
                     this.select_object_list(this.scene_data.select_objects, settings3D.select_color);
                 }
             } else {
@@ -300,6 +300,24 @@ export default {
                 }
             }
         },
+        get_model_code_by_name(name) {
+            if (this.mode == 'byq') {
+                for (let i = 0; i < byq_name_code_list.length; ++i) {
+                    const name_code_item = byq_name_code_list[i];
+                    if (name_code_item.name == name) {
+                        return name_code_item.code;
+                    }
+                }
+            } else if (this.mode == 'gis') {
+                for (let i = 0; i < gis_name_code_list.length; ++i) {
+                    const name_code_item = gis_name_code_list[i];
+                    if (name_code_item.name == name) {
+                        return name_code_item.code;
+                    }
+                }
+            }
+            return '';
+        },
         on_window_resize() {
             const rect = this.get_render_rect();
             camera.aspect = rect.width / rect.height;
@@ -310,13 +328,13 @@ export default {
         animate() {
             requestAnimationFrame( this.animate );
             renderer.render( scene, camera );
-            stats.update();
+            // stats.update();
             TWEEN.update();
 
             // uniform
             if (this.need_relation) {
                 let newTime = this.relation_uniforms.time.value + settings3D.link_speed;
-                if (newTime > 5.0) {newTime = 0;}
+                if (newTime > 4.0) {newTime = 0;}
                 this.relation_uniforms.time.value = newTime;
             }
         },
@@ -631,12 +649,12 @@ export default {
             }
             return objects;
         },
-        relation_object_by_name(name1, name2, type) {
+        relation_object_by_name(name1, name2, type, is_ipt) {
             const object1 = scene.getObjectByName(name1);
             if (object1 == undefined) return;
             const object2 = scene.getObjectByName(name2);
             if (object2 == undefined) return;
-            this.relation_object(object1, object2, type);
+            this.relation_object(object1, object2, type, is_ipt);
         },
         unrelation_object_by_name() {
             const object1 = scene.getObjectByName(name1);
@@ -645,7 +663,7 @@ export default {
             if (object2 == undefined) return;
             this.unrelation_object(object1, object2);
         },
-        relation_object(object1, object2, type) {
+        relation_object(object1, object2, type, is_ipt) {
             const link_name = object1.name + '_' + object2.name;
             const index = this.scene_data.link_items.findIndex((item) => {
                 return item.name == link_name;
@@ -655,11 +673,13 @@ export default {
             }
             const position1 = new THREE.Vector3().setFromMatrixPosition(object1.matrixWorld);
             const position2 = new THREE.Vector3().setFromMatrixPosition(object2.matrixWorld);
+            const length = position1.distanceTo(position2);
+
             const insert = new THREE.Vector3();
             const vertices = [];
             const orders = [];
-            for (let i = 0; i < 100; ++i) {
-                insert.lerpVectors(position1, position2, i / 100);
+            for (let i = 0; i < length; ++i) {
+                insert.lerpVectors(position1, position2, i / length);
                 vertices.push(insert.x, insert.y, insert.z);
                 orders.push(i);
             }
@@ -675,10 +695,16 @@ export default {
             const inner = new THREE.Line(geometryInner, materialInner);
             scene.add(inner);
 
-            const length = position1.distanceTo(position2);
+            
             const geometryOuter = new THREE.CylinderGeometry( settings3D.link_width, settings3D.link_width, length, 24 );
+            let color = undefined;
+            if (is_ipt) {
+                color = settings3D.link_color_ipt;
+            } else {
+                color = settings3D.link_color;
+            }
             const materialOuter = new THREE.MeshBasicMaterial({
-                color: settings3D.link_color,
+                color: color,
                 opacity: settings3D.link_opacity,
                 transparent: true
             });
@@ -695,33 +721,10 @@ export default {
             this.scene_data.link_items.push({
                 name: link_name,
                 type: type,
+                is_ipt: is_ipt,
                 inner: inner,
                 outer: outer
-            })
-            
-            // const position1 = new THREE.Vector3().setFromMatrixPosition(object1.matrixWorld);
-            // const position2 = new THREE.Vector3().setFromMatrixPosition(object2.matrixWorld);
-            // const insert = new THREE.Vector3();
-            // const vertices = [];
-            // const orders = [];
-            // for (let i = 0; i < 100; ++i) {
-            //     insert.lerpVectors(position1, position2, i / 100);
-            //     vertices.push(insert.x, insert.y, insert.z);
-            //     orders.push(i);
-            // }
-            // const geometry = new THREE.BufferGeometry();
-            // geometry.setAttribute( 'position', new THREE.Float32BufferAttribute( vertices, 3 ) );
-            // geometry.setAttribute( 'order', new THREE.Float32BufferAttribute( orders, 1 ) );
-
-            // const shaderMaterial = new THREE.ShaderMaterial({
-            //     uniforms: this.relations,
-            //     vertexShader: RelationLineVert,
-            //     fragmentShader: RelationLineFlag
-            // })
-            // const mesh = new THREE.Points( geometry, shaderMaterial );
-            // mesh.name = link_name;
-            // this.relation_link_names.push(link_name);
-            // scene.add( mesh );
+            });
         },
         unrelation_object(object1, object2) {
             const link_name = object1.name + '_' + object2.name;
@@ -756,19 +759,57 @@ export default {
                     link_item.outer.visible = false;
                 }
             }
+            // 新增盒子的隐藏
+            const ipt_names = ['雾汇聚桥节点1', '雾汇聚桥节点2', '直流电源节点1', '直流电源节点2'];
+            for (let i = 0; i < ipt_names.length; ++i) {
+                const ipt_name = ipt_names[i];
+                const object = scene.getObjectByName(ipt_name);
+                if (object) {
+                    object.visible = false;
+                }
+            }
+            for (let i = 0; i < this.scene_data.link_items.length; ++i) {
+                const link_item = this.scene_data.link_items[i];
+                const link_name = link_item.name;
+                const names = link_name.split('_');
+                for (let j = 0; j < names.length; ++j) {
+                    const object_name = names[j];
+                    const object = scene.getObjectByName(object_name);
+                    if (object) {
+                        object.visible = false;
+                    }
+                }
+            }
+            for (let i = 0; i < this.scene_data.link_items.length; ++i) {
+                const link_item = this.scene_data.link_items[i];
+                if (link_item.type != type) {
+                    continue;
+                }
+                const link_name = link_item.name;
+                const names = link_name.split('_');
+                for (let j = 0; j < names.length; ++j) {
+                    const object_name = names[j];
+                    const object = scene.getObjectByName(object_name);
+                    if (object) {
+                        object.visible = true;
+                    }
+                }
+            }
             // '特高频局放', '高频局放', '超声局放', '接地电流', '温度', '振动'
+            const scale = 0.7;
             if (type == '特高频局放') {
-                this.fly_to_position(new THREE.Vector3(600, 600, 0), new THREE.Vector3(0, 0, 0));
+                settings3D.camera_distance
+                this.fly_to_position(new THREE.Vector3(settings3D.camera_distance, 600, 0), new THREE.Vector3(0, 0, 0));
             } else if (type == '高频局放') {
-                this.fly_to_position(new THREE.Vector3(600, 600, 600), new THREE.Vector3(0, 0, 0));
+                this.fly_to_position(new THREE.Vector3(settings3D.camera_distance * scale, 600, settings3D.camera_distance * scale), new THREE.Vector3(0, 0, 0));
             } else if (type == '超声局放') {
-                this.fly_to_position(new THREE.Vector3(0, 600, 600), new THREE.Vector3(0, 0, 0));
+                this.fly_to_position(new THREE.Vector3(0, 600, settings3D.camera_distance), new THREE.Vector3(0, 0, 0));
             } else if ('接地电流' == type) {
-                this.fly_to_position(new THREE.Vector3(600, 600, -500), new THREE.Vector3(0, 0, 0));
+                this.fly_to_position(new THREE.Vector3(settings3D.camera_distance * scale, 600, (-settings3D.camera_distance+100) * scale), new THREE.Vector3(0, 0, 0));
             } else if ('温度' == type) {
-                this.fly_to_position(new THREE.Vector3(-500, 600, 600), new THREE.Vector3(0, 0, 0));
+                this.fly_to_position(new THREE.Vector3((-settings3D.camera_distance+100) * scale, 600, settings3D.camera_distance*scale), new THREE.Vector3(0, 0, 0));
             } else if ('振动' == type) {
-                this.fly_to_position(new THREE.Vector3(-600, 600, 0), new THREE.Vector3(0, 0, 0));
+                this.fly_to_position(new THREE.Vector3(-settings3D.camera_distance, 600, 0), new THREE.Vector3(0, 0, 0));
             }
         },
         reset_relation_object() {
@@ -780,18 +821,53 @@ export default {
                 link_item.inner.visible = true;
                 link_item.outer.visible = true;
             }
-            this.fly_to_position(new THREE.Vector3(0, 600, 600), new THREE.Vector3(0, 0, 0));
+            // 新增盒子的隐藏
+            const ipt_names = ['雾汇聚桥节点1', '雾汇聚桥节点2', '直流电源节点1', '直流电源节点2'];
+            for (let i = 0; i < ipt_names.length; ++i) {
+                const ipt_name = ipt_names[i];
+                const object = scene.getObjectByName(ipt_name);
+                if (object) {
+                    object.visible = true;
+                }
+            }
+            for (let i = 0; i < this.scene_data.link_items.length; ++i) {
+                const link_item = this.scene_data.link_items[i];
+                const link_name = link_item.name;
+                const names = link_name.split('_');
+                for (let j = 0; j < names.length; ++j) {
+                    const object_name = names[j];
+                    const object = scene.getObjectByName(object_name);
+                    if (object) {
+                        object.visible = true;
+                    }
+                }
+            }
+            this.fly_to_position(new THREE.Vector3(0, 600, settings3D.camera_distance), new THREE.Vector3(0, 0, 0));
         },
         select_link_list(list, color) {
             for (let i = 0; i < list.length; ++i) {
                 const link_item = list[i];
-                link_item.outer.material.color.set(color);
+                let temp_color = undefined;
+                if (color == undefined) {
+                    if (link_item.is_ipt) {
+                        temp_color = settings3D.link_select_ipt;
+                    } else {
+                        temp_color = settings3D.link_select;
+                    }
+                } else {
+                    temp_color = color;
+                }
+                link_item.outer.material.color.set(temp_color);
             }
         },
         unselect_link_list(list) {
             for (let i = 0; i < list.length; ++i) {
                 const link_item = list[i];
-                link_item.outer.material.color.set(settings3D.link_color);
+                if (link_item.is_ipt) {
+                    link_item.outer.material.color.set(settings3D.link_color_ipt);
+                } else {
+                    link_item.outer.material.color.set(settings3D.link_color);
+                }
             }
         },
         // 设置物体的维修状态
