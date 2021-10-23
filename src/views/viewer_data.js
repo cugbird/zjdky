@@ -1,6 +1,6 @@
 const byq_relation_trees = [
     {
-        name: '雾汇聚报警节点1',
+        name: '雾汇聚桥节点1',
         children: [
             {
                 name: '特高频局放IPT节点A',
@@ -87,7 +87,7 @@ const byq_relation_trees = [
         ]
     },
     {
-        name: '雾汇聚报警节点2',
+        name: '雾汇聚桥节点2',
         children: [
             {
                 name: '特高频局放IPT节点C',
@@ -167,7 +167,7 @@ const byq_relation_trees = [
     }
 ]
 
-const byq_select_items = [];
+const byq_select_items = ['雾汇聚报警节点1','雾汇聚报警节点2','雾汇聚桥节点1','雾汇聚桥节点2','直流电源节点1','直流电源节点2'];
 for (let i = 0; i < byq_relation_trees.length; ++i) {
     const item_level_1 = byq_relation_trees[i];
     for (let j = 0; j < item_level_1.children.length; ++j) {
@@ -182,7 +182,7 @@ for (let i = 0; i < byq_relation_trees.length; ++i) {
 
 const gis_relation_trees = [
     {
-        name: '雾汇聚报警节点1',
+        name: '雾汇聚桥节点1',
         children: [
             {
                 name: '特高频局放IPT节点A',
@@ -215,7 +215,7 @@ const gis_relation_trees = [
         ]
     },
     {
-        name: '雾汇聚报警节点2',
+        name: '雾汇聚桥节点2',
         children: [
             {
                 name: '特高频局放IPT节点E',
@@ -255,7 +255,7 @@ const gis_relation_trees = [
         ]
     }
 ]
-const gis_select_items = [];
+const gis_select_items = ['雾汇聚报警节点1','雾汇聚报警节点2','雾汇聚桥节点1','雾汇聚桥节点2','直流电源节点1','直流电源节点2'];
 for (let i = 0; i < gis_relation_trees.length; ++i) {
     const item_level_1 = gis_relation_trees[i];
     for (let j = 0; j < item_level_1.children.length; ++j) {
@@ -271,6 +271,8 @@ for (let i = 0; i < gis_relation_trees.length; ++i) {
 const byq_name_code_list = [
     {name: '雾汇聚报警节点1', code: 'TRA_B_A'},
     {name: '雾汇聚报警节点2', code: 'TRA_B_B'},
+    {name: '雾汇聚桥节点1', code: 'TRA_B_A'},
+    {name: '雾汇聚桥节点2', code: 'TRA_B_B'},
     {name: '特高频局放IPT节点A', code: 'IPT_TRA_TGPJF_A'},
     {name: '特高频局放IPT节点B', code: 'IPT_TRA_TGPJF_B'},
     {name: '特高频局放IPT节点C', code: 'IPT_TRA_TGPJF_C'},
@@ -325,6 +327,8 @@ const byq_name_code_list = [
 ]
 
 const gis_name_code_list = [
+    {name: '雾汇聚桥节点1', code: 'TRA_B_A'},
+    {name: '雾汇聚桥节点2', code: 'TRA_B_B'},
     {name: '特高频局放IPT节点A', code: 'IPT_GIS_TGPJF_A'},
     {name: '特高频局放IPT节点B', code: 'IPT_GIS_TGPJF_B'},
     {name: '特高频局放IPT节点C', code: 'IPT_GIS_TGPJF_C'},

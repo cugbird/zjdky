@@ -105,15 +105,17 @@ export default {
 
             scene = new THREE.Scene();
             // 天空盒子
-            const path = "/static/img/cube3/dark-s_";
-            const format = '.png';
-            const urls = [
-                path + 'px' + format,path + 'nx' + format,
-                path + 'py' + format,path + 'ny' + format,
-                path + 'pz' + format,path + 'nz' + format,
-            ];
-            const textureCube = new THREE.CubeTextureLoader().load(urls);
-            scene.background = textureCube;
+            // const path = "/static/img/cube3/dark-s_";
+            // const format = '.png';
+            // const urls = [
+            //     path + 'px' + format,path + 'nx' + format,
+            //     path + 'py' + format,path + 'ny' + format,
+            //     path + 'pz' + format,path + 'nz' + format,
+            // ];
+            // const textureCube = new THREE.CubeTextureLoader().load(urls);
+            // scene.background = textureCube;
+            // 普通图片背景
+            scene.background = new THREE.TextureLoader().load('/static/img/bkg.png');
             // 半球光
             const hemiLight = new THREE.HemisphereLight(0xf0f0f0, 0x404040);
             hemiLight.position.set( 500, 500, 0 );
@@ -138,7 +140,7 @@ export default {
             this.orbitCtrl.target.set(0, 0, 0);
             this.orbitCtrl.maxDistance = 2000;
             this.orbitCtrl.maxPolarAngle = Math.PI * 3/ 7;
-            this.orbitCtrl.enablePan = false;
+            // this.orbitCtrl.enablePan = false;
             this.orbitCtrl.update();
 
             window.addEventListener('resize', this.on_window_resize, false);
@@ -147,6 +149,8 @@ export default {
             // this.$refs.viewerRef.appendChild( stats.dom );
             // 监听事件
             raycaster = new THREE.Raycaster();
+            // 开启选择
+            this.canSelected = true;
             // 进入渲染循环
             this.animate();
         },
@@ -673,6 +677,7 @@ export default {
             }
             const position1 = new THREE.Vector3().setFromMatrixPosition(object1.matrixWorld);
             const position2 = new THREE.Vector3().setFromMatrixPosition(object2.matrixWorld);
+
             const length = position1.distanceTo(position2);
 
             const insert = new THREE.Vector3();
@@ -684,8 +689,8 @@ export default {
                 orders.push(i);
             }
             const geometryInner = new THREE.BufferGeometry();
-            geometryInner.setAttribute( 'position', new THREE.Float32BufferAttribute( vertices, 3 ) );
-            geometryInner.setAttribute( 'order', new THREE.Float32BufferAttribute( orders, 1 ) );
+            geometryInner.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3 ));
+            geometryInner.setAttribute('order', new THREE.Float32BufferAttribute(orders, 1));
 
             const materialInner = new THREE.ShaderMaterial({
                 uniforms: this.relation_uniforms,
@@ -695,7 +700,6 @@ export default {
             const inner = new THREE.Line(geometryInner, materialInner);
             scene.add(inner);
 
-            
             const geometryOuter = new THREE.CylinderGeometry( settings3D.link_width, settings3D.link_width, length, 24 );
             let color = undefined;
             if (is_ipt) {
@@ -760,14 +764,15 @@ export default {
                 }
             }
             // 新增盒子的隐藏
-            const ipt_names = ['雾汇聚桥节点1', '雾汇聚桥节点2', '直流电源节点1', '直流电源节点2'];
-            for (let i = 0; i < ipt_names.length; ++i) {
-                const ipt_name = ipt_names[i];
-                const object = scene.getObjectByName(ipt_name);
-                if (object) {
-                    object.visible = false;
-                }
-            }
+            // const ipt_names = ['雾汇聚桥节点1', '雾汇聚桥节点2', '直流电源节点1', '直流电源节点2'];
+            // for (let i = 0; i < ipt_names.length; ++i) {
+            //     const ipt_name = ipt_names[i];
+            //     const object = scene.getObjectByName(ipt_name);
+            //     if (object) {
+            //         object.visible = false;
+            //     }
+            // }
+            
             for (let i = 0; i < this.scene_data.link_items.length; ++i) {
                 const link_item = this.scene_data.link_items[i];
                 const link_name = link_item.name;
@@ -797,20 +802,59 @@ export default {
             }
             // '特高频局放', '高频局放', '超声局放', '接地电流', '温度', '振动'
             const scale = 0.7;
-            if (type == '特高频局放') {
-                settings3D.camera_distance
-                this.fly_to_position(new THREE.Vector3(settings3D.camera_distance, 600, 0), new THREE.Vector3(0, 0, 0));
-            } else if (type == '高频局放') {
-                this.fly_to_position(new THREE.Vector3(settings3D.camera_distance * scale, 600, settings3D.camera_distance * scale), new THREE.Vector3(0, 0, 0));
-            } else if (type == '超声局放') {
-                this.fly_to_position(new THREE.Vector3(0, 600, settings3D.camera_distance), new THREE.Vector3(0, 0, 0));
-            } else if ('接地电流' == type) {
-                this.fly_to_position(new THREE.Vector3(settings3D.camera_distance * scale, 600, (-settings3D.camera_distance+100) * scale), new THREE.Vector3(0, 0, 0));
-            } else if ('温度' == type) {
-                this.fly_to_position(new THREE.Vector3((-settings3D.camera_distance+100) * scale, 600, settings3D.camera_distance*scale), new THREE.Vector3(0, 0, 0));
-            } else if ('振动' == type) {
-                this.fly_to_position(new THREE.Vector3(-settings3D.camera_distance, 600, 0), new THREE.Vector3(0, 0, 0));
+            const target_name = this.get_ipt_by_type(type);
+            if (target_name == undefined) {
+                return;
             }
+            const target = scene.getObjectByName(target_name);
+            if (target == undefined) {
+                return;
+            }
+            const target_position = new THREE.Vector3().setFromMatrixPosition(target.matrixWorld);
+            const camera_position = new THREE.Vector3(0, 200, 0);
+            if (Math.abs(target_position.x) >= Math.abs(target_position.z)) {
+                camera_position.z = target_position.z;
+                if (target_position.x >= 0) {
+                    camera_position.x = target_position.x + 200;
+                } else {
+                    camera_position.x = target_position.x - 200;
+                }
+            } else {
+                camera_position.x = target_position.x;
+                if (target_position.z >= 0) {
+                    camera_position.z = target_position.z + 200;
+                } else {
+                    camera_position.z = target_position.z - 200;
+                }
+            }
+            console.log('new position:', camera_position, ', new target:', target_position);
+            this.fly_to_position(camera_position, target_position);
+            
+            // if (type == '特高频局放') {
+            //     this.fly_to_position(new THREE.Vector3(settings3D.camera_distance, 600, 0), new THREE.Vector3(0, 0, 0));
+            // } else if (type == '高频局放') {
+            //     this.fly_to_position(new THREE.Vector3(settings3D.camera_distance * scale, 600, settings3D.camera_distance * scale), new THREE.Vector3(0, 0, 0));
+            // } else if (type == '超声局放') {
+            //     this.fly_to_position(new THREE.Vector3(0, 600, settings3D.camera_distance), new THREE.Vector3(0, 0, 0));
+            // } else if ('接地电流' == type) {
+            //     this.fly_to_position(new THREE.Vector3(settings3D.camera_distance * scale, 600, (-settings3D.camera_distance+100) * scale), new THREE.Vector3(0, 0, 0));
+            // } else if ('温度' == type) {
+            //     this.fly_to_position(new THREE.Vector3((-settings3D.camera_distance+100) * scale, 600, settings3D.camera_distance*scale), new THREE.Vector3(0, 0, 0));
+            // } else if ('振动' == type) {
+            //     this.fly_to_position(new THREE.Vector3(-settings3D.camera_distance, 600, 0), new THREE.Vector3(0, 0, 0));
+            // }
+        },
+        get_ipt_by_type(type) {
+            for (let i = 0; i < this.scene_data.relation_trees.length; ++i) {
+                const item_level_1 = this.scene_data.relation_trees[i];
+                for (let j = 0; j < item_level_1.children.length; ++j) {
+                    const item_level_2 = item_level_1.children[j];
+                    if (item_level_2.type == type) {
+                        return item_level_2.name;
+                    }
+                }
+            }
+            return undefined;
         },
         reset_relation_object() {
             if (this.mode == 'gis') {
@@ -822,14 +866,14 @@ export default {
                 link_item.outer.visible = true;
             }
             // 新增盒子的隐藏
-            const ipt_names = ['雾汇聚桥节点1', '雾汇聚桥节点2', '直流电源节点1', '直流电源节点2'];
-            for (let i = 0; i < ipt_names.length; ++i) {
-                const ipt_name = ipt_names[i];
-                const object = scene.getObjectByName(ipt_name);
-                if (object) {
-                    object.visible = true;
-                }
-            }
+            // const ipt_names = ['雾汇聚桥节点1', '雾汇聚桥节点2', '直流电源节点1', '直流电源节点2'];
+            // for (let i = 0; i < ipt_names.length; ++i) {
+            //     const ipt_name = ipt_names[i];
+            //     const object = scene.getObjectByName(ipt_name);
+            //     if (object) {
+            //         object.visible = true;
+            //     }
+            // }
             for (let i = 0; i < this.scene_data.link_items.length; ++i) {
                 const link_item = this.scene_data.link_items[i];
                 const link_name = link_item.name;
@@ -945,6 +989,13 @@ export default {
             scene.add(sprite);
             return sprite;
         },
+        set_camera_position(x, y, z) {
+            camera.position.set(x, y, z);
+        },
+        set_camera_target(x, y, z) {
+            const target = new THREE.Vector3(x, y, z);
+            camera.lookAt(target);
+        }
     }
 }
 </script>
