@@ -229,7 +229,10 @@ export default {
                 for (let i = 0; i < this.scene_data.link_items.length; ++i) {
                     const link_item = this.scene_data.link_items[i];
                     scene.add(link_item.inner);
-                    scene.add(link_item.outer);
+                    // scene.add(link_item.outer);
+                    link_item.outer.forEach((item) => {
+                        scene.add(item);
+                    })
                 }
             }
         },
@@ -237,7 +240,10 @@ export default {
             for (let i = 0; i < list.length; ++i) {
                 const link_item = list[i];
                 scene.remove(link_item.inner);
-                scene.remove(link_item.outer);
+                // scene.remove(link_item.outer);
+                link_item.outer.forEach((item) => {
+                    scene.remove(item);
+                })
             }
         },
         mouse_event_click(e) {
@@ -655,9 +661,15 @@ export default {
         },
         relation_object_by_name(name1, name2, type, is_ipt) {
             const object1 = scene.getObjectByName(name1);
-            if (object1 == undefined) return;
+            if (object1 == undefined) {
+                console.log('relation_object_by_name: name1 not find');
+                return;
+            }
             const object2 = scene.getObjectByName(name2);
-            if (object2 == undefined) return;
+            if (object2 == undefined) {
+                console.log('relation_object_by_name: name2 not find');
+                return;
+            }
             this.relation_object(object1, object2, type, is_ipt);
         },
         unrelation_object_by_name() {
@@ -667,7 +679,97 @@ export default {
             if (object2 == undefined) return;
             this.unrelation_object(object1, object2);
         },
+        get_link_object(position1, position2, is_ipt) {
+            const length = position1.distanceTo(position2);
+            const geometryOuter = new THREE.CylinderGeometry( settings3D.link_width, settings3D.link_width, length, 24 );
+            let color = settings3D.link_color;
+            if (is_ipt) {
+                color = settings3D.link_color_ipt;
+            }
+            const materialOuter = new THREE.MeshBasicMaterial({
+                color: color,
+                opacity: settings3D.link_opacity,
+                transparent: true
+            });
+            const outer = new THREE.Mesh(geometryOuter, materialOuter);
+            const center = new THREE.Vector3().addVectors(position1, position2).multiplyScalar(0.5);
+            const matrix = new THREE.Matrix4().lookAt(position2, position1, THREE.Object3D.DefaultUp);
+            outer.position.copy(center);
+            outer.quaternion.setFromAxisAngle(new THREE.Vector3(1, 0, 0), Math.PI / 2);
+            const quaternion_new = new THREE.Quaternion().setFromRotationMatrix(matrix);
+            outer.quaternion.premultiply(quaternion_new);
+            outer.updateMatrix();
+            return outer;
+        },
         relation_object(object1, object2, type, is_ipt) {
+            let height = 20;
+            if (is_ipt) {
+                this.relation_object_ipt(object1, object2, type);
+                return;
+            }
+            const link_name = object1.name + '_' + object2.name;
+            const index = this.scene_data.link_items.findIndex((item) => {
+                return item.name == link_name;
+            });
+            if (index != -1) {
+                return;
+            }
+            const position1 = new THREE.Vector3().setFromMatrixPosition(object1.matrixWorld);
+            const position2 = new THREE.Vector3(position1.x, height, position1.z);
+            const position4 = new THREE.Vector3().setFromMatrixPosition(object2.matrixWorld);
+            const position3 = new THREE.Vector3(position4.x, height, position4.z);
+
+            const length1 = position1.distanceTo(position2);
+            const length2 = position2.distanceTo(position3);
+            const length3 = position3.distanceTo(position4);
+
+            const insert = new THREE.Vector3();
+            const vertices = [];
+            const orders = [];
+            
+            for (let i = 0; i < length1; ++i) {
+                insert.lerpVectors(position1, position2, i / length1);
+                vertices.push(insert.x, insert.y, insert.z);
+                orders.push(i);
+            }
+            const count1 = orders.length;
+            for (let i = 0; i < length2; ++i) {
+                insert.lerpVectors(position2, position3, i / length2);
+                vertices.push(insert.x, insert.y, insert.z);
+                orders.push(count1 + i);
+            }
+            const count2 = orders.length;
+            for (let i = 0; i < length3; ++i) {
+                insert.lerpVectors(position3, position4, i / length3);
+                vertices.push(insert.x, insert.y, insert.z);
+                orders.push(count2 + i);
+            }
+            const geometryInner = new THREE.BufferGeometry();
+            geometryInner.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3 ));
+            geometryInner.setAttribute('order', new THREE.Float32BufferAttribute(orders, 1));
+
+            const materialInner = new THREE.ShaderMaterial({
+                uniforms: this.relation_uniforms,
+                vertexShader: RelationLineVert2,
+                fragmentShader: RelationLineFlag2
+            })
+            const inner = new THREE.Line(geometryInner, materialInner);
+            scene.add(inner);
+
+            const outer1 = this.get_link_object(position1, position2, is_ipt);
+            const outer2 = this.get_link_object(position2, position3, is_ipt);
+            const outer3 = this.get_link_object(position3, position4, is_ipt);
+            scene.add(outer1, outer2, outer3);
+
+            this.scene_data.link_items.push({
+                name: link_name,
+                type: type,
+                is_ipt: is_ipt,
+                inner: inner,
+                outer: [outer1, outer2, outer3]
+            });
+        },
+        relation_object_ipt(object1, object2, type) {
             const link_name = object1.name + '_' + object2.name;
             const index = this.scene_data.link_items.findIndex((item) => {
                 return item.name == link_name;
@@ -683,6 +785,7 @@ export default {
             const insert = new THREE.Vector3();
             const vertices = [];
             const orders = [];
+
             for (let i = 0; i < length; ++i) {
                 insert.lerpVectors(position1, position2, i / length);
                 vertices.push(insert.x, insert.y, insert.z);
@@ -700,34 +803,15 @@ export default {
             const inner = new THREE.Line(geometryInner, materialInner);
             scene.add(inner);
 
-            const geometryOuter = new THREE.CylinderGeometry( settings3D.link_width, settings3D.link_width, length, 24 );
-            let color = undefined;
-            if (is_ipt) {
-                color = settings3D.link_color_ipt;
-            } else {
-                color = settings3D.link_color;
-            }
-            const materialOuter = new THREE.MeshBasicMaterial({
-                color: color,
-                opacity: settings3D.link_opacity,
-                transparent: true
-            });
-            const outer = new THREE.Mesh( geometryOuter, materialOuter );
-            const center = new THREE.Vector3().addVectors(position1, position2).multiplyScalar(0.5);
-            const matrix = new THREE.Matrix4().lookAt(position2, position1, THREE.Object3D.DefaultUp);
-            outer.position.copy(center);
-            outer.quaternion.setFromAxisAngle(new THREE.Vector3(1, 0, 0), Math.PI / 2);
-            const quaternion_new = new THREE.Quaternion().setFromRotationMatrix(matrix);
-            outer.quaternion.premultiply(quaternion_new);
-            outer.updateMatrix();
+            const outer = this.get_link_object(position1, position2, true);
             scene.add(outer);
 
             this.scene_data.link_items.push({
                 name: link_name,
                 type: type,
-                is_ipt: is_ipt,
+                is_ipt: true,
                 inner: inner,
-                outer: outer
+                outer: [outer]
             });
         },
         unrelation_object(object1, object2) {
@@ -740,7 +824,9 @@ export default {
             }
             const link_item = this.scene_data.link_items.splice(index, 1)[0];
             scene.remove(link_item.inner);
-            scene.remove(link_item.outer);
+            link_item.outer.forEach((item) => {
+                scene.remove(item);
+            });
         },
         show_relation_link_by_type(type) {
             if (!this.scene_types.includes(type)) {
@@ -756,11 +842,17 @@ export default {
                 if (link_item.type == type) {
                     // console.log('show type:', link_item.type);
                     link_item.inner.visible = true;
-                    link_item.outer.visible = true;
+                    // link_item.outer.visible = true;
+                    link_item.outer.forEach((item) => {
+                        item.visible = true;
+                    });
                 } else {
                     // console.log('hide type:', link_item.type);
                     link_item.inner.visible = false;
-                    link_item.outer.visible = false;
+                    // link_item.outer.visible = false;
+                    link_item.outer.forEach((item) => {
+                        item.visible = false;
+                    });
                 }
             }
             // 新增盒子的隐藏
@@ -863,7 +955,10 @@ export default {
             for (let i = 0; i < this.scene_data.link_items.length; ++i) {
                 const link_item = this.scene_data.link_items[i];
                 link_item.inner.visible = true;
-                link_item.outer.visible = true;
+                // link_item.outer.visible = true;
+                link_item.outer.forEach((item) => {
+                    item.visible = true;
+                })
             }
             // 新增盒子的隐藏
             // const ipt_names = ['雾汇聚桥节点1', '雾汇聚桥节点2', '直流电源节点1', '直流电源节点2'];
@@ -901,16 +996,25 @@ export default {
                 } else {
                     temp_color = color;
                 }
-                link_item.outer.material.color.set(temp_color);
+                // link_item.outer.material.color.set(temp_color);
+                link_item.outer.forEach((item) => {
+                    item.material.color.set(temp_color);
+                });
             }
         },
         unselect_link_list(list) {
             for (let i = 0; i < list.length; ++i) {
                 const link_item = list[i];
                 if (link_item.is_ipt) {
-                    link_item.outer.material.color.set(settings3D.link_color_ipt);
+                    // link_item.outer.material.color.set(settings3D.link_color_ipt);
+                    link_item.outer.forEach((item) => {
+                        item.material.color.set(settings3D.link_color_ipt);
+                    });
                 } else {
-                    link_item.outer.material.color.set(settings3D.link_color);
+                    // link_item.outer.material.color.set(settings3D.link_color);
+                    link_item.outer.forEach((item) => {
+                        item.material.color.set(settings3D.link_color);
+                    });
                 }
             }
         },
@@ -995,6 +1099,7 @@ export default {
         set_camera_target(x, y, z) {
             const target = new THREE.Vector3(x, y, z);
             camera.lookAt(target);
+            this.orbitCtrl.target.copy(target);
         }
     }
 }
