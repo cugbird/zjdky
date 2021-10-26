@@ -19,6 +19,7 @@
             <div class="btn-item" @click="test_function11('温度')">只显示温度</div>
             <div class="btn-item" @click="test_function11('振动')">只显示振动</div>
             <div class="btn-item" @click="test_function12">展示全部蚂蚁线</div>
+            <div class="btn-item" @click="test_function13">获得当前相机的位置与焦点</div>
             
         </div>
         <Viewer3d ref="viewer3d" @object-select="handleSelectObject"></Viewer3d>
@@ -99,6 +100,10 @@ export default {
         test_function12() {
             this.$refs.viewer3d.reset_relation_object();
         },
+        test_function13() {
+            const info = this.$refs.viewer3d.get_camera_info();
+            console.log('camera info:', info);
+        }
     }
 }
 </script>

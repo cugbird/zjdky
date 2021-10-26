@@ -296,9 +296,12 @@ export default {
                     const sensor_items = this.get_relation_object_by_name(target.name);
                     this.scene_data.select_objects.push(...sensor_items);
                     this.select_object_list(this.scene_data.select_objects, settings3D.select_color);
+                } else {
+                    this.$emit('object-select', undefined);
                 }
             } else {
                 console.log('no intersects');
+                this.$emit('object-select', undefined);
                 // 之前有选中的物体，则回退物体的颜色
                 if (this.scene_data.select_objects.length > 0) {
                     this.unselect_object_list(this.scene_data.select_objects);
@@ -1100,6 +1103,20 @@ export default {
             const target = new THREE.Vector3(x, y, z);
             camera.lookAt(target);
             this.orbitCtrl.target.copy(target);
+        },
+        get_camera_info() {
+            if (this.orbitCtrl == undefined) {
+                return;
+            }
+            if (camera == undefined) {
+                return;
+            }
+            const target = this.orbitCtrl.target.clone();
+            const position = camera.position.clone();
+            return {
+                target,
+                position
+            };
         }
     }
 }
