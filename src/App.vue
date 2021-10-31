@@ -26,7 +26,7 @@
             <div class="btn-item" @click="test_function17">隐藏全部传感器盒子蚂蚁线</div>
             <div class="btn-item" @click="test_function18">展示全部传感器盒子蚂蚁线</div>
         </div>
-        <Viewer3d ref="viewer3d" @object-select="handleSelectObject"></Viewer3d>
+        <Viewer3d ref="viewer3d" @object-select="handleSelectObject" @link-loaded="linkLoaded"></Viewer3d>
     </div>
 </template>
 
@@ -125,6 +125,9 @@ export default {
         test_function18() {
             this.$refs.viewer3d.show_all_sensor_link();
         },
+        linkLoaded() {
+            this.$refs.viewer3d.hide_all_sensor_link();
+        }
     }
 }
 </script>

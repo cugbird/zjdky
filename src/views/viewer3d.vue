@@ -248,6 +248,7 @@ export default {
                     }
                 }
             }
+            this.$emit('link-loaded', undefined);
         },
         remove_relation_links(list) {
             for (let i = 0; i < list.length; ++i) {
