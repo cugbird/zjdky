@@ -84,6 +84,45 @@ const byq_relation_trees = [
                     {name: '振动传感器4'},
                 ]
             },
+        ],
+        children_ipt: [
+            {
+                name: 'line1',
+                children: [
+                    {name: '特高频局放IPT节点D'},
+                    {name: '雾汇聚报警节点2'},
+                    {name: '高频局放IPT节点C'},
+                    {name: '高频局放IPT节点B'},
+                    {name: '直流电源节点2'},
+                    {name: '超声局放IPT节点F'},
+                    {name: '超声局放IPT节点E'},
+                    {name: '超声局放IPT节点D'},
+                    {name: '夹件接地电流IPT节点'},
+                    {name: '特高频局放IPT节点B'},
+                    {name: '铁芯接地电流IPT节点'},
+                    {name: '雾汇聚桥节点1'},
+                ]
+            },
+            {
+                name: 'line2',
+                children: [
+                    {name: '温度IPT节点B'},
+                    {name: '振动IPT节点D'},
+                    {name: '温度IPT节点A'},
+                    {name: '振动IPT节点C'},
+                    {name: '特高频局放IPT节点C'},
+                    {name: '超声局放IPT节点B'},
+                    {name: '超声局放IPT节点A'},
+                    {name: '直流电源节点1'},
+                    {name: '超声局放IPT节点C'},
+                    {name: '高频局放IPT节点A'},
+                    {name: '雾汇聚报警节点1'},
+                    {name: '特高频局放IPT节点A'},
+                    {name: '振动IPT节点A'},
+                    {name: '振动IPT节点B'},
+                    {name: '雾汇聚桥节点1'},
+                ]
+            }
         ]
     },
     {
@@ -163,6 +202,45 @@ const byq_relation_trees = [
                     {name: '振动传感器8'},
                 ]
             },
+        ],
+        children_ipt: [
+            {
+                name: 'line1',
+                children: [
+                    {name: '铁芯接地电流IPT节点'},
+                    {name: '特高频局放IPT节点B'},
+                    {name: '夹件接地电流IPT节点'},
+                    {name: '超声局放IPT节点D'},
+                    {name: '超声局放IPT节点E'},
+                    {name: '超声局放IPT节点F'},
+                    {name: '直流电源节点2'},
+                    {name: '高频局放IPT节点B'},
+                    {name: '高频局放IPT节点C'},
+                    {name: '雾汇聚报警节点2'},
+                    {name: '特高频局放IPT节点D'},
+                    {name: '雾汇聚桥节点2'},
+                ]
+            },
+            {
+                name: 'line2',
+                children: [
+                    {name: '振动IPT节点B'},
+                    {name: '振动IPT节点A'},
+                    {name: '特高频局放IPT节点A'},
+                    {name: '雾汇聚报警节点1'},
+                    {name: '高频局放IPT节点A'},
+                    {name: '超声局放IPT节点C'},
+                    {name: '直流电源节点1'},
+                    {name: '超声局放IPT节点A'},
+                    {name: '超声局放IPT节点B'},
+                    {name: '特高频局放IPT节点C'},
+                    {name: '振动IPT节点C'},
+                    {name: '温度IPT节点A'},
+                    {name: '振动IPT节点D'},
+                    {name: '温度IPT节点B'},
+                    {name: '雾汇聚桥节点2'},
+                ]
+            }
         ]
     }
 ]
@@ -212,6 +290,27 @@ const gis_relation_trees = [
                     {name: '特高频局放传感器4'}
                 ]
             },
+        ],
+        children_ipt: [
+            {
+                name: 'line1',
+                children: [
+                    {name: '直流电源节点2'},
+                    {name: '特高频局放IPT节点I'},
+                    {name: '特高频局放IPT节点H'},
+                    {name: '特高频局放IPT节点G'},
+                    {name: '特高频局放IPT节点F'},
+                    {name: '特高频局放IPT节点E'},
+                    {name: '雾汇聚报警节点2'},
+                    {name: '特高频局放IPT节点D'},
+                    {name: '特高频局放IPT节点C'},
+                    {name: '特高频局放IPT节点B'},
+                    {name: '特高频局放IPT节点A'},
+                    {name: '直流电源节点1'},
+                    {name: '雾汇聚报警节点1'},
+                    {name: '雾汇聚桥节点1'},
+                ]
+            }
         ]
     },
     {
@@ -252,6 +351,33 @@ const gis_relation_trees = [
                     {name: '特高频局放传感器9'}
                 ]
             },
+        ],
+        children_ipt: [
+            {
+                name: 'line1',
+                children: [
+                    {name: '雾汇聚报警节点1'},
+                    {name: '直流电源节点1'},
+                    {name: '特高频局放IPT节点A'},
+                    {name: '特高频局放IPT节点B'},
+                    {name: '雾汇聚桥节点2'},
+                ]
+            },
+            {
+                name: 'line2',
+                children: [
+                    {name: '直流电源节点2'},
+                    {name: '特高频局放IPT节点I'},
+                    {name: '特高频局放IPT节点H'},
+                    {name: '特高频局放IPT节点G'},
+                    {name: '特高频局放IPT节点F'},
+                    {name: '特高频局放IPT节点E'},
+                    {name: '雾汇聚报警节点2'},
+                    {name: '特高频局放IPT节点D'},
+                    {name: '特高频局放IPT节点C'},
+                    {name: '雾汇聚桥节点2'},
+                ]
+            }
         ]
     }
 ]

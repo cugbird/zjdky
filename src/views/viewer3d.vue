@@ -41,7 +41,8 @@ export default {
                     twinkles: [], // 闪烁效果
                     ripples: [], // 涟漪效果
                     repairs: [], // 维修效果
-                    link_items: [], // 蚂蚁线名称集合
+                    link_items: [], // 传感器到ipt盒子的蚂蚁线
+                    link_items_ipt: [], // ipt盒子到桥接点的蚂蚁线
                     select_links: [], // 当前选中的蚂蚁线
                 },
                 'gis': {
@@ -52,7 +53,8 @@ export default {
                     twinkles: [], // 闪烁效果
                     ripples: [], // 涟漪效果
                     repairs: [], // 维修效果
-                    link_items: [], // 蚂蚁线效果
+                    link_items: [], // 传感器到ipt盒子的蚂蚁线
+                    link_items_ipt: [], // ipt盒子到桥接点的蚂蚁线
                     select_links: [], // 当前选中的蚂蚁线
                 }
             },
@@ -197,6 +199,7 @@ export default {
                 // this.scene_data.link_items = [];
                 this.hide_ripple_sphere_list(this.scene_data.ripples);
                 this.hide_repair_sprite_list(this.scene_data.repairs);
+                this.reset_ipt_link();
 
                 scene.remove(this.scene_data.model);
             }
@@ -218,7 +221,7 @@ export default {
                     const item_level_1 = this.scene_data.relation_trees[i];
                     for (let j = 0; j < item_level_1.children.length; ++j) {
                         const item_level_2 = item_level_1.children[j];
-                        this.relation_object_by_name(item_level_2.name, item_level_1.name, item_level_2.type, true);
+                        // this.relation_object_by_name(item_level_2.name, item_level_1.name, item_level_2.type, true);
                         for (let k = 0; k < item_level_2.children.length; ++k) {
                             const item_level_3 = item_level_2.children[k];
                             this.relation_object_by_name(item_level_3.name, item_level_2.name, item_level_2.type, false);
@@ -233,6 +236,16 @@ export default {
                     link_item.outer.forEach((item) => {
                         scene.add(item);
                     })
+                }
+            }
+            // 新增ipt盒子到桥接点的蚂蚁线
+            if (this.scene_data.link_items_ipt.length == 0) {
+                for (let i = 0; i < this.scene_data.relation_trees.length; ++i) {
+                    const item_level_1 = this.scene_data.relation_trees[i];
+                    for (let j = 0; j < item_level_1.children_ipt.length; ++j) {
+                        const item_level_2 = item_level_1.children_ipt[j];
+                        this.relation_ipt_by_name(item_level_1.name, item_level_2.name, item_level_2.children);
+                    }
                 }
             }
         },
@@ -257,6 +270,8 @@ export default {
                 this.unselect_link_list(this.scene_data.select_links);
                 this.scene_data.select_links = [];
             }
+            // 重置ipt盒子与桥接点的蚂蚁线
+            // this.reset_ipt_link();
             const {offsetX, offsetY} = e;
             const rect = this.get_render_rect();
             const pointer = {
@@ -296,6 +311,10 @@ export default {
                     const sensor_items = this.get_relation_object_by_name(target.name);
                     this.scene_data.select_objects.push(...sensor_items);
                     this.select_object_list(this.scene_data.select_objects, settings3D.select_color);
+                    // 如果选中的是桥接点，现实桥接点蚂蚁线
+                    // if (target.name.includes('桥节点')) {
+                    //     this.show_ipt_link(target.name);
+                    // }
                 } else {
                     this.$emit('object-select', undefined);
                 }
@@ -675,6 +694,97 @@ export default {
             }
             this.relation_object(object1, object2, type, is_ipt);
         },
+        relation_ipt_by_name(name1, name2, list) {
+            const link_name = name1 + '_' + name2;
+            const insert = new THREE.Vector3();
+            const vertices = [];
+            const orders = [];
+            const outers = [];
+
+            for (let i = 0; i < list.length - 1; ++i) {
+                const name1 = list[i].name;
+                const name2 = list[i + 1].name;
+                const object1 = scene.getObjectByName(name1);
+                if (object1 == undefined) {
+                    console.log('do not find object1:', name1);
+                    continue;
+                }
+                const object2 = scene.getObjectByName(name2);
+                if (object2 == undefined) {
+                    console.log('do not find object2:', name2);
+                    continue;
+                }
+                const position1 = new THREE.Vector3().setFromMatrixPosition(object1.matrixWorld);
+                const position2 = new THREE.Vector3().setFromMatrixPosition(object2.matrixWorld);
+                const length = position1.distanceTo(position2);
+                const orderIndex = orders.length;
+                for (let i = 0; i < length; ++i) {
+                    insert.lerpVectors(position1, position2, i / length);
+                    vertices.push(insert.x, insert.y, insert.z);
+                    orders.push(i + orderIndex);
+                }
+                const outer = this.get_link_object(position1, position2, true);
+                outers.push(outer);
+            }
+            const geometryInner = new THREE.BufferGeometry();
+            geometryInner.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3 ));
+            geometryInner.setAttribute('order', new THREE.Float32BufferAttribute(orders, 1));
+
+            const materialInner = new THREE.ShaderMaterial({
+                uniforms: this.relation_uniforms,
+                vertexShader: RelationLineVert2,
+                fragmentShader: RelationLineFlag2
+            })
+            const inner = new THREE.Line(geometryInner, materialInner);
+            // scene.add(inner);
+            // scene.add(outer1, outer2, outer3);
+
+            this.scene_data.link_items_ipt.push({
+                name: link_name,
+                type: 'qj',
+                is_ipt: true,
+                inner: inner,
+                outer: outers
+            });
+        },
+        show_ipt_link(name) {
+            for (let i = 0; i < this.scene_data.link_items_ipt.length; ++i) {
+                const link_item_ipt = this.scene_data.link_items_ipt[i];
+                if (link_item_ipt.name.includes(name)) {
+                    scene.add(link_item_ipt.inner);
+                    link_item_ipt.outer.forEach((item) => {
+                        scene.add(item);
+                    })
+                }
+            }
+        },
+        reset_ipt_link() {
+            for (let i = 0; i < this.scene_data.link_items_ipt.length; ++i) {
+                const link_item_ipt = this.scene_data.link_items_ipt[i];
+                scene.remove(link_item_ipt.inner);
+                link_item_ipt.outer.forEach((item) => {
+                    scene.remove(item);
+                })
+            }
+        },
+        show_all_sensor_link() {
+            for (let i = 0; i < this.scene_data.link_items.length; ++i) {
+                const link_item = this.scene_data.link_items[i];
+                link_item.inner.visible = true;
+                link_item.outer.forEach((item) => {
+                    item.visible = true;
+                });
+            }
+        },
+        hide_all_sensor_link() {
+            for (let i = 0; i < this.scene_data.link_items.length; ++i) {
+                const link_item = this.scene_data.link_items[i];
+                link_item.inner.visible = false;
+                link_item.outer.forEach((item) => {
+                    item.visible = false;
+                });
+            }
+        },
         unrelation_object_by_name() {
             const object1 = scene.getObjectByName(name1);
             if (object1 == undefined) return;
@@ -705,11 +815,11 @@ export default {
             return outer;
         },
         relation_object(object1, object2, type, is_ipt) {
-            let height = 20;
-            if (is_ipt) {
-                this.relation_object_ipt(object1, object2, type);
-                return;
-            }
+            const height = 20;
+            // if (is_ipt) {
+            //     this.relation_object_ipt(object1, object2, type);
+            //     return;
+            // }
             const link_name = object1.name + '_' + object2.name;
             const index = this.scene_data.link_items.findIndex((item) => {
                 return item.name == link_name;
@@ -896,34 +1006,33 @@ export default {
                 }
             }
             // '特高频局放', '高频局放', '超声局放', '接地电流', '温度', '振动'
-            const scale = 0.7;
-            const target_name = this.get_ipt_by_type(type);
-            if (target_name == undefined) {
-                return;
-            }
-            const target = scene.getObjectByName(target_name);
-            if (target == undefined) {
-                return;
-            }
-            const target_position = new THREE.Vector3().setFromMatrixPosition(target.matrixWorld);
-            const camera_position = new THREE.Vector3(0, 200, 0);
-            if (Math.abs(target_position.x) >= Math.abs(target_position.z)) {
-                camera_position.z = target_position.z;
-                if (target_position.x >= 0) {
-                    camera_position.x = target_position.x + 200;
-                } else {
-                    camera_position.x = target_position.x - 200;
-                }
-            } else {
-                camera_position.x = target_position.x;
-                if (target_position.z >= 0) {
-                    camera_position.z = target_position.z + 200;
-                } else {
-                    camera_position.z = target_position.z - 200;
-                }
-            }
-            console.log('new position:', camera_position, ', new target:', target_position);
-            this.fly_to_position(camera_position, target_position);
+            // const target_name = this.get_ipt_by_type(type);
+            // if (target_name == undefined) {
+            //     return;
+            // }
+            // const target = scene.getObjectByName(target_name);
+            // if (target == undefined) {
+            //     return;
+            // }
+            // const target_position = new THREE.Vector3().setFromMatrixPosition(target.matrixWorld);
+            // const camera_position = new THREE.Vector3(0, 200, 0);
+            // if (Math.abs(target_position.x) >= Math.abs(target_position.z)) {
+            //     camera_position.z = target_position.z;
+            //     if (target_position.x >= 0) {
+            //         camera_position.x = target_position.x + 200;
+            //     } else {
+            //         camera_position.x = target_position.x - 200;
+            //     }
+            // } else {
+            //     camera_position.x = target_position.x;
+            //     if (target_position.z >= 0) {
+            //         camera_position.z = target_position.z + 200;
+            //     } else {
+            //         camera_position.z = target_position.z - 200;
+            //     }
+            // }
+            // console.log('new position:', camera_position, ', new target:', target_position);
+            // this.fly_to_position(camera_position, target_position);
             
             // if (type == '特高频局放') {
             //     this.fly_to_position(new THREE.Vector3(settings3D.camera_distance, 600, 0), new THREE.Vector3(0, 0, 0));
@@ -1117,7 +1226,7 @@ export default {
                 target,
                 position
             };
-        }
+        },
     }
 }
 </script>

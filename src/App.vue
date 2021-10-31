@@ -13,14 +13,18 @@
             <div class="btn-item" @click="test_function9">添加选中事件</div>
             <div class="btn-item" @click="test_function10">移除选中事件</div>
             <div class="btn-item" @click="test_function11('特高频局放')">只显示特高频局放</div>
-            <div class="btn-item" @click="test_function11('高频局放')">只显示高频局放</div>
+            <!-- <div class="btn-item" @click="test_function11('高频局放')">只显示高频局放</div>
             <div class="btn-item" @click="test_function11('超声局放')">只显示超声局放</div>
             <div class="btn-item" @click="test_function11('接地电流')">只显示接地电流</div>
             <div class="btn-item" @click="test_function11('温度')">只显示温度</div>
-            <div class="btn-item" @click="test_function11('振动')">只显示振动</div>
+            <div class="btn-item" @click="test_function11('振动')">只显示振动</div> -->
             <div class="btn-item" @click="test_function12">展示全部蚂蚁线</div>
             <div class="btn-item" @click="test_function13">获得当前相机的位置与焦点</div>
-            
+            <div class="btn-item" @click="test_function14">模拟选中桥接点1</div>
+            <div class="btn-item" @click="test_function15">模拟选中桥接点2</div>
+            <div class="btn-item" @click="test_function16">取消选中桥接点</div>
+            <div class="btn-item" @click="test_function17">隐藏全部传感器盒子蚂蚁线</div>
+            <div class="btn-item" @click="test_function18">展示全部传感器盒子蚂蚁线</div>
         </div>
         <Viewer3d ref="viewer3d" @object-select="handleSelectObject"></Viewer3d>
     </div>
@@ -103,7 +107,24 @@ export default {
         test_function13() {
             const info = this.$refs.viewer3d.get_camera_info();
             console.log('camera info:', info);
-        }
+        },
+        test_function14() {
+            this.$refs.viewer3d.reset_ipt_link();
+            this.$refs.viewer3d.show_ipt_link('雾汇聚桥节点1');
+        },
+        test_function15() {
+            this.$refs.viewer3d.reset_ipt_link();
+            this.$refs.viewer3d.show_ipt_link('雾汇聚桥节点2');
+        },
+        test_function16() {
+            this.$refs.viewer3d.reset_ipt_link();
+        },
+        test_function17() {
+            this.$refs.viewer3d.hide_all_sensor_link();
+        },
+        test_function18() {
+            this.$refs.viewer3d.show_all_sensor_link();
+        },
     }
 }
 </script>
@@ -124,7 +145,7 @@ html, body {
 }
 .left-wrap {
     position: absolute;
-    top: 70px;
+    top: 20px;
     left: 10px;
     z-index: 10;
 
