@@ -126,7 +126,10 @@ export default {
             this.$refs.viewer3d.show_all_sensor_link();
         },
         linkLoaded() {
-            this.$refs.viewer3d.hide_all_sensor_link();
+            // this.$refs.viewer3d.hide_all_sensor_link();
+            this.$refs.viewer3d.reset_ipt_link();
+            this.$refs.viewer3d.show_ipt_link('雾汇聚桥节点1');
+            // this.$refs.viewer3d.show_ipt_link('雾汇聚桥节点2');
         }
     }
 }
