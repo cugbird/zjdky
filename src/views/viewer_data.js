@@ -89,15 +89,24 @@ const byq_relation_trees = [
             {
                 name: 'line1',
                 children: [
+                    // 补缺失的线 start
+                    {name: '雾汇聚桥节点2'},
+                    // 补缺失的线 end
                     {name: '特高频局放IPT节点D'},
                     {name: '雾汇聚报警节点2'},
-                    {name: '高频局放IPT节点C'},
+                    // 位置更换 start
+                    // {name: '高频局放IPT节点C'},
+                    {name: '夹件接地电流IPT节点'},
+                    // 位置更换 end
                     {name: '高频局放IPT节点B'},
                     {name: '直流电源节点2'},
                     {name: '超声局放IPT节点F'},
                     {name: '超声局放IPT节点E'},
                     {name: '超声局放IPT节点D'},
-                    {name: '夹件接地电流IPT节点'},
+                    // 位置更换 start
+                    // {name: '夹件接地电流IPT节点'},
+                    // 位置更换 end
+                    {name: '高频局放IPT节点C'},
                     {name: '特高频局放IPT节点B'},
                     {name: '铁芯接地电流IPT节点'},
                     {name: '雾汇聚桥节点1'},
@@ -106,6 +115,7 @@ const byq_relation_trees = [
             {
                 name: 'line2',
                 children: [
+                    {name: '雾汇聚桥节点2'},
                     {name: '温度IPT节点B'},
                     {name: '振动IPT节点D'},
                     {name: '温度IPT节点A'},
@@ -207,15 +217,22 @@ const byq_relation_trees = [
             {
                 name: 'line1',
                 children: [
+                    {name: '雾汇聚桥节点1'},
                     {name: '铁芯接地电流IPT节点'},
                     {name: '特高频局放IPT节点B'},
-                    {name: '夹件接地电流IPT节点'},
+                    // 位置更换 start
+                    // {name: '夹件接地电流IPT节点'},
+                    {name: '高频局放IPT节点C'},
+                    // 位置更换 end
                     {name: '超声局放IPT节点D'},
                     {name: '超声局放IPT节点E'},
                     {name: '超声局放IPT节点F'},
                     {name: '直流电源节点2'},
                     {name: '高频局放IPT节点B'},
-                    {name: '高频局放IPT节点C'},
+                    // 位置更换 start
+                    // {name: '高频局放IPT节点C'},
+                    // 位置更换 end
+                    {name: '夹件接地电流IPT节点'},
                     {name: '雾汇聚报警节点2'},
                     {name: '特高频局放IPT节点D'},
                     {name: '雾汇聚桥节点2'},
@@ -224,6 +241,7 @@ const byq_relation_trees = [
             {
                 name: 'line2',
                 children: [
+                    {name: '雾汇聚桥节点1'},
                     {name: '振动IPT节点B'},
                     {name: '振动IPT节点A'},
                     {name: '特高频局放IPT节点A'},

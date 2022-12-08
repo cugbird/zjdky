@@ -78,7 +78,7 @@ export default {
     mounted() {
         this.init3D();
         this.load_business();
-        this.load_model('/static/model/byq_001.FBX', 'byq');
+        this.load_model('/static/model/byq_003.FBX', 'byq');
         this.load_model('/static/model/gis_001.FBX', 'gis');
     },
     methods: {
